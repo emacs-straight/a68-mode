@@ -93,7 +93,8 @@
       "DIV" "OVER" "MOD" "ELEM" "SHL" "SHR" "OVERAB" "DIVAB" "MODAB"
       "UP" "DOWN"
       "NIL" "TRUE" "FALSE"
-      "MODULE" "DEF" "FED" "POSTLUDE" "ACCESS" "PUB")
+      "MODULE" "DEF" "FED" "POSTLUDE" "ACCESS" "PUB"
+      "UNSAFE")
     "List of Algol 68 keywords."))
 
 (defconst a68-font-lock-keywords
@@ -445,8 +446,10 @@ into a68--mode-indicants."
   a68--mode-indicants)
 
 (defun a68--do-auto-stropping ()
-  (when (or (eq (char-before) ?\s)
-            (eq (char-before) ?\n))
+  (when (and (not (a68-within-comment))
+             (not (a68-within-string))
+             (or (eq (char-before) ?\s)
+                 (eq (char-before) ?\n)))
     (let (id beginning end)
       (save-excursion
         (goto-char (- (point) 1))
