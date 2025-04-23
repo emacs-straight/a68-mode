@@ -124,11 +124,11 @@
   (save-excursion
     (goto-char (point-min))
     (if (let ((case-fold-search nil))
-          (and (re-search-forward "PR SUPPER PR" nil t)
+          (and (re-search-forward "PR UPPER PR" nil t)
                (not (a68-within-comment))
                (not (a68-within-string))))
-        'supper
-      'upper)))
+        'upper
+      'supper)))
 
 ;;;; UPPER stropping
 
@@ -157,7 +157,7 @@
       "UP" "DOWN"
       "NIL" "TRUE" "FALSE"
       "MODULE" "DEF" "FED" "POSTLUDE" "ACCESS" "PUB"
-      "UNSAFE")
+      "UNSAFE" "ASSERT")
     "List of Algol 68 keywords in UPPER stropping."))
 
 (defconst a68-font-lock-keywords-upper
@@ -201,12 +201,11 @@
                            ("BEGIN" exp "END")
                            ("MODULE" exp "DEF" exp "FED")
                            ("MODULE" exp "DEF" exp "POSTLUDE" exp "FED"))
-                      (type-decl ("MODE" type-decl*))
-                      (type-decl* (type-decl* "," type-decl*)
-                                  (id "=" type-decl**))
-                      (type-decl** ("STRUCT" args)
-                                   ("UNION" args)
-                                   ("PROC" args "-archor-" ids))
+                      (type-decl (type-decl "," type-decl)
+                                 ("MODE" ids "=" type-decl*))
+                      (type-decl* ("STRUCT" args)
+                                  ("UNION" args)
+                                  ("PROC" args "-archor-" ids))
                       (op-decl (op-decl "," op-decl)
                                ("OP" ids "=" args ids ":" exp))
                       (proc-decl (proc-decl "," proc-decl)
@@ -331,14 +330,14 @@
     "List of Algol 68 standard modes in SUPPER stropping.")
 
   (defconst a68-keywords-supper
-    '("true" "false" "empty"
+    '("true" "false" "empty" "at"
       "pr" "PR" "pragmat" "PRAGMAT"
-      "andth" "orel"
+      "andth" "orel" "is" "isnt"
       "long" "short" "ref" "loc" "heap" "struct" "flex" "proc"
       "union" "op" "prio" "mode" "begin" "end" "exit" "par" "if"
       "then" "elif" "else" "fi" "case" "in" "ouse" "out" "esac"
-      "nil" "of" "goto" "skip" "for" "from" "by" "to" "while"
-      "do" "od")
+      "nil" "of" "go" "goto" "skip" "for" "from" "by" "to" "while"
+      "do" "od" "unsafe" "assert")
     "List of Algol 68 keywords in SUPPER stropping."))
 
 (defconst a68-font-lock-keywords-supper
@@ -383,12 +382,11 @@
                            ("begin" exp "end")
                            ("module" exp "def" exp "fed")
                            ("module" exp "def" exp "postlude" exp "fed"))
-                      (type-decl ("mode" type-decl*))
-                      (type-decl* (type-decl* "," type-decl*)
-                                  (id "=" type-decl**))
-                      (type-decl** ("struct" args)
-                                   ("union" args)
-                                   ("proc" args "-archor-" ids))
+                      (type-decl (type-decl "," type-decl)
+                                 ("mode" ids "=" type-decl*))
+                      (type-decl* ("struct" args)
+                                  ("union" args)
+                                  ("proc" args "-archor-" ids))
                       (op-decl (op-decl "," op-decl)
                                ("op" ids "=" args ids ":" exp))
                       (proc-decl (proc-decl "," proc-decl)
@@ -500,6 +498,25 @@
                                      'syntax-multiline t)))))
      (point) end)))
 
+;;;; Stropping utilities and commands.
+
+(defun a68-supperize-buffer ()
+  "Translate code from UPPER stropping to SUPPER stropping."
+  (interactive)
+  (let* ((keywords (append a68-std-modes-supper
+                           a68-keywords-supper))
+         (replacements (mapcar (lambda (keyword)
+                                 (list keyword
+                                       (downcase keyword)))
+                               keywords)))
+    ;; Apply replacements
+    (save-excursion
+      (mapcar (lambda (pair)
+                (goto-char (point-min))
+                (while (re-search-forward (concat "\\<" (car pair) "\\>") nil t)
+                  (replace-match (cadr pair) t t)))
+              replacements))))
+
 ;;;; The major mode.
 
 ;;;###autoload
@@ -525,7 +542,6 @@
                 :backward-token #'a68--smie-backward-token)
     (setq-local beginning-of-defun-function #'a68-beginning-of-defun-upper)
     (setq-local syntax-propertize-function #'a68-syntax-propertize-function-upper))
-  (add-hook 'after-change-functions #'a68--after-change-function nil t)
   (add-hook 'syntax-propertize-extend-region-functions
             #'syntax-propertize-multiline 'append 'local)
   (setq-local comment-start a68-comment-style)
