@@ -52,6 +52,9 @@
                  (const "COMMENT"))
   :safe #'consp)
 
+(defface a68-string-break-face '((t :inherit font-lock-string-face))
+  "Face for printing Algol 64 string breaks.")
+
 ;;;; Stuff common to all stroppings
 
 (defvar a68-mode-map
@@ -130,10 +133,12 @@
         'upper
       'supper)))
 
-;;;; UPPER stropping
+;;;; Lists of keywords and modes.
 
 (eval-and-compile
   ;; Those vars are used during macroexpansion (and hence compilation).
+
+  ;; UPPER stropping.
   (defconst a68-std-modes-upper
     '("SHORT" "LONG" "INT" "REAL" "BITS" "BYTES"
       "COMPL" "STRING" "REF" "FLEX" "VOID")
@@ -158,31 +163,171 @@
       "NIL" "TRUE" "FALSE"
       "MODULE" "DEF" "FED" "POSTLUDE" "ACCESS" "PUB"
       "UNSAFE" "ASSERT")
-    "List of Algol 68 keywords in UPPER stropping."))
+    "List of Algol 68 keywords in UPPER stropping.")
 
-(defconst a68-font-lock-keywords-upper
+  ;; SUPPER stropping.
+  (defconst a68-std-modes-supper
+    '("int" "real" "bool" "char" "format" "void"
+      "compl" "bits" "bytes" "string" "sema" "file" "channel")
+    "List of Algol 68 standard modes in SUPPER stropping.")
+
+  (defconst a68-keywords-supper
+    '("true" "false" "empty" "at"
+      "pr" "pragmat"
+      "andth" "orel" "is" "isnt"
+      "long" "short" "ref" "loc" "heap" "struct" "flex" "proc"
+      "union" "op" "prio" "mode" "begin" "end" "exit" "par" "if"
+      "then" "elif" "else" "fi" "case" "in" "ouse" "out" "esac"
+      "nil" "of" "go" "goto" "skip" "for" "from" "by" "to" "while"
+      "do" "od" "unsafe" "assert")
+    "List of Algol 68 keywords in SUPPER stropping."))
+
+;;;; Font-lock keywords.
+
+(defconst a68-font-lock-keywords-common
   (list
-   (cons (rx word-start
-             (eval `(or ,@a68-keywords-upper))
-             word-end)
-         ''font-lock-keyword-face)
-   (cons (rx word-start
-             (eval `(or ,@a68-std-modes-upper))
-             word-end)
-         ''font-lock-type-face)
-   (cons (rx word-start
-             (or "TRUE" "FALSE")
-             word-end)
-         ''font-lock-constant-face)
+   ;; String breaks.  Apostrophe is not (currently) a worthy character
+   ;; out of strings, so for now we can just match it anywhere.
+   '("\\('[nrft']\\)\\|\\('(.*?)\\)" 0 ''a68-string-break-face prepend)
+   '("\\(''\\|[^']\\)\\('[^nrft'(]\\)" 2 ''font-lock-warning-face prepend)
    ;; Two or more consecutive underscore characters are always
    ;; illegal in this stropping regime.
-   (cons "_[_]+" ''font-lock-warning-face)
-   '("\\<\\([A-Z]+[A-Z_]*\\>\\)\\(_+\\)?"
-     (1 'font-lock-type-face)
-      (2 'font-lock-warning-face nil t))
-   (cons "\\('\\w*'\\)"
-         ''font-lock-variable-name-face))
-  "Highlighting expressions for Algol 68 mode in UPPER stropping.")
+   (cons "_[_]+" ''font-lock-warning-face))
+  "Font-lock keywords expressions common to all stropping regimes. ")
+
+(defconst a68-font-lock-keywords-upper
+  (append
+   a68-font-lock-keywords-common
+   (list (cons (rx word-start
+                   (eval `(or ,@a68-keywords-upper))
+                   word-end)
+               ''font-lock-keyword-face)
+         (cons (rx word-start
+                   (eval `(or ,@a68-std-modes-upper))
+                   word-end)
+               ''font-lock-type-face)
+         (cons (rx word-start
+                   (or "TRUE" "FALSE")
+                   word-end)
+               ''font-lock-constant-face)
+         '("\\<\\([A-Z]+[A-Z_]*\\>\\)\\(_+\\)?"
+           (1 'font-lock-type-face)
+           (2 'font-lock-warning-face nil t))
+         (cons "\\('\\w*'\\)"
+               ''font-lock-variable-name-face)))
+   "Highlighting expressions for Algol 68 mode in UPPER stropping.")
+
+(defconst a68-font-lock-keywords-supper
+  (append
+   a68-font-lock-keywords-common
+   (list
+    (cons (rx word-start
+              (eval `(or ,@a68-keywords-supper))
+              word-end)
+          ''font-lock-keyword-face)
+    (cons (rx word-start
+              (eval `(or ,@a68-std-modes-supper))
+              word-end)
+          ''font-lock-type-face)
+    (cons (rx word-start
+              (or "true" "false")
+              word-end)
+          ''font-lock-constant-face)
+    ;; Tags.
+    (cons "\\<[a-z]\\([a-z]_\\)*\\>" ''font-lock-variable-name-face)
+    ;; By convention operators have only upper-letter names.
+    (cons "\\<\\([A-Z]+\\>\\)" ''font-lock-keyword-face)
+    ;; Mode names use ThisCase.
+    (cons "\\<\\([A-Z][A-Za-z_]*\\>\\)" ''font-lock-type-face)))
+   "Highlighting expressions for Algol 68 mode in SUPPER stropping.")
+
+;;;; Syntax-based text properties.
+
+(defun a68-syntax-propertize-function-upper (start end)
+  (let ((case-fold-search nil))
+    (goto-char start)
+    (funcall
+     (syntax-propertize-rules
+      ((rx (group "#")
+           (*? anychar)
+           (group "#"))
+       (1 (when (not (a68-within-string)) (string-to-syntax "<")))
+       (2 (when (not (a68-within-string)) (string-to-syntax ">")))
+       (0 (ignore (put-text-property (match-beginning 0) (match-end 0)
+                                     'syntax-multiline t))))
+      ((rx bow (group "C") "OMMENT" eow
+           (*? anychar)
+           bow "COMMEN" (group "T") eow)
+       (1 (when (not (a68-within-string)) (string-to-syntax "< b")))
+       (2 (when (not (a68-within-string)) (string-to-syntax "> b")))
+       (0 (ignore (put-text-property (match-beginning 0) (match-end 0)
+                                     'syntax-multiline t))))
+      ((rx bow (group "C") "O" eow
+           (*? anychar)
+           bow "C" (group "O") eow)
+       (1 (when (not (a68-within-string)) (string-to-syntax "< c")))
+       (2 (when (not (a68-within-string)) (string-to-syntax "> c")))
+       (0 (ignore (put-text-property (match-beginning 0) (match-end 0)
+                                     'syntax-multiline t)))))
+     (point) end)))
+
+(defun a68-syntax-propertize-function-supper (start end)
+  (let ((case-fold-search nil))
+    (goto-char start)
+    (funcall
+     (syntax-propertize-rules
+      ((rx (group "#")
+           (*? anychar)
+           (group "#"))
+       (1 (when (not (a68-within-string)) (string-to-syntax "<")))
+       (2 (when (not (a68-within-string)) (string-to-syntax ">")))
+       (0 (ignore (put-text-property (match-beginning 0) (match-end 0)
+                                     'syntax-multiline t))))
+      ((rx bow (group "c") "omment" eow
+           (*? anychar)
+           bow "commen" (group "t") eow)
+       (1 (when (not (a68-within-string)) (string-to-syntax "< b")))
+       (2 (when (not (a68-within-string)) (string-to-syntax "> b")))
+       (0 (ignore (put-text-property (match-beginning 0) (match-end 0)
+                                     'syntax-multiline t))))
+      ((rx bow (group "c") "o" eow
+           (*? anychar)
+           bow "c" (group "o") eow)
+       (1 (when (not (a68-within-string)) (string-to-syntax "< c")))
+       (2 (when (not (a68-within-string)) (string-to-syntax "> c")))
+       (0 (ignore (put-text-property (match-beginning 0) (match-end 0)
+                                     'syntax-multiline t)))))
+     (point) end)))
+
+;;;; Functions to move up and down a procedure.
+
+(defun a68-beginning-of-defun-upper (&optional count)
+  "Algol 68 specific `beginning-of-defun-function' for UPPER stropping."
+  (let ((count (or count 1))
+        (case-fold-search nil)
+        res)
+    (while (> count 0)
+      (goto-char (save-excursion
+                   (while (and (re-search-backward (rx bow (or "PROC" "OP") eow) nil t)
+                               (a68-within-string-or-comment)))
+                   (setq res (point))))
+      (setq count (1- count )))
+    res))
+
+(defun a68-beginning-of-defun-supper (&optional count)
+  "Algol 68 specific `beginning-of-defun-function' for SUPPER stropping."
+  (let ((count (or count 1))
+        (case-fold-search nil)
+        res)
+    (while (> count 0)
+      (goto-char (save-excursion
+                   (while (and (re-search-backward (rx bow (or "proc" "op") eow) nil t)
+                               (a68-within-string-or-comment)))
+                   (setq res (point))))
+      (setq count (1- count )))
+    res))
+
+;;;; SMIE grammar
 
 (defvar a68--smie-grammar-upper
   (smie-prec2->grammar
@@ -248,124 +393,6 @@
                     '((assoc "=" "/" ":=" ":=:" ":/=:"
                              "+" "-" "*" "/")))))
 
-(defun a68--smie-rules-upper (kind token)
-  (pcase (cons kind token)
-    (`(:elem . basic) a68-indent-level)
-    ;; (`(,_ . ",") (smie-rule-separator kind))
-    (`(,_ . ",") (smie-rule-separator kind))
-    (`(,_ . ";") (when (smie-rule-parent-p)
-                   (smie-rule-parent)))
-    (`(:after . ":=") a68-indent-level)
-    (`(:after . "=") a68-indent-level)
-    (`(:before . "BEGIN")
-     (when (or (smie-rule-hanging-p)
-               (or
-                (and (or (smie-rule-parent-p "PROC")
-                         (smie-rule-parent-p "OP"))
-                     (smie-rule-prev-p ":"))
-                (smie-rule-parent-p "PROGRAM")))
-       (smie-rule-parent)))
-    (`(:before . "THEN")
-     (when (or (smie-rule-hanging-p)
-               (smie-rule-parent-p "IF"))
-       (smie-rule-parent)))
-    (`(:before . "(")
-     (when (smie-rule-hanging-p)
-       (smie-rule-parent)))
-    (`(:before . "IF")
-     (and (not (smie-rule-bolp))
-          (smie-rule-prev-p "ELSE")
-          (smie-rule-parent)))))
-
-(defun a68-beginning-of-defun-upper (&optional count)
-  "Algol 68 specific `beginning-of-defun-function'."
-  (let ((count (or count 1))
-        (case-fold-search nil)
-        res)
-    (while (> count 0)
-      (goto-char (save-excursion
-                   (while (and (re-search-backward (rx bow (or "PROC" "OP") eow) nil t)
-                               (a68-within-string-or-comment)))
-                   (setq res (point))))
-      (setq count (1- count )))
-    res))
-
-(defun a68-syntax-propertize-function-upper (start end)
-  (let ((case-fold-search nil))
-    (goto-char start)
-    (funcall
-     (syntax-propertize-rules
-      ;; a comment is # ... #, but I don't want the
-      ;; (eventual) shebang #! to be considered the start of
-      ;; the comment.
-      ((rx (group "#" (not "!"))
-           (*? anychar)
-           (group "#"))
-       (1 (when (not (a68-within-string)) (string-to-syntax "<")))
-       (2 (when (not (a68-within-string)) (string-to-syntax ">")))
-       (0 (ignore (put-text-property (match-beginning 0) (match-end 0)
-                                     'syntax-multiline t))))
-      ((rx bow (group "C") "OMMENT" eow
-           (*? anychar)
-           bow "COMMEN" (group "T") eow)
-       (1 (when (not (a68-within-string)) (string-to-syntax "< b")))
-       (2 (when (not (a68-within-string)) (string-to-syntax "> b")))
-       (0 (ignore (put-text-property (match-beginning 0) (match-end 0)
-                                     'syntax-multiline t))))
-      ((rx bow (group "C") "O" eow
-           (*? anychar)
-           bow "C" (group "O") eow)
-       (1 (when (not (a68-within-string)) (string-to-syntax "< c")))
-       (2 (when (not (a68-within-string)) (string-to-syntax "> c")))
-       (0 (ignore (put-text-property (match-beginning 0) (match-end 0)
-                                     'syntax-multiline t)))))
-     (point) end)))
-
-;;;; SUPPER stropping.
-
-(eval-and-compile
-  ;; Those vars are used during macroexpansion (and hence compilation).
-  (defconst a68-std-modes-supper
-    '("int" "real" "bool" "char" "format" "void"
-      "compl" "bits" "bytes" "string" "sema" "file" "channel")
-    "List of Algol 68 standard modes in SUPPER stropping.")
-
-  (defconst a68-keywords-supper
-    '("true" "false" "empty" "at"
-      "pr" "PR" "pragmat" "PRAGMAT"
-      "andth" "orel" "is" "isnt"
-      "long" "short" "ref" "loc" "heap" "struct" "flex" "proc"
-      "union" "op" "prio" "mode" "begin" "end" "exit" "par" "if"
-      "then" "elif" "else" "fi" "case" "in" "ouse" "out" "esac"
-      "nil" "of" "go" "goto" "skip" "for" "from" "by" "to" "while"
-      "do" "od" "unsafe" "assert")
-    "List of Algol 68 keywords in SUPPER stropping."))
-
-(defconst a68-font-lock-keywords-supper
-  (list
-   (cons (rx word-start
-             (eval `(or ,@a68-keywords-supper))
-             word-end)
-         ''font-lock-keyword-face)
-   (cons (rx word-start
-             (eval `(or ,@a68-std-modes-supper))
-             word-end)
-         ''font-lock-type-face)
-   (cons (rx word-start
-             (or "true" "false")
-             word-end)
-         ''font-lock-constant-face)
-   ;; Two or more consecutive underscore characters are always
-   ;; illegal in this stropping regime.
-   (cons "_[_]+" ''font-lock-warning-face)
-   ;; Tags.
-   (cons "\\<[a-z]\\([a-z]_\\)*\\>" ''font-lock-variable-name-face)
-   ;; By convention operators have only upper-letter names.
-   (cons "\\<\\([A-Z]+\\>\\)" ''font-lock-keyword-face)
-   ;; Mode names use ThisCase.
-   (cons "\\<\\([A-Z][A-Za-z_]*\\>\\)" ''font-lock-type-face))
-  "Highlighting expressions for Algol 68 mode in SUPPER stropping.")
-
 (defvar a68--smie-grammar-supper
   (smie-prec2->grammar
    (smie-bnf->prec2 '((id)
@@ -430,6 +457,37 @@
                     '((assoc "=" "/" ":=" ":=:" ":/=:"
                              "+" "-" "*" "/")))))
 
+;;;; SMIE indentation rules.
+
+(defun a68--smie-rules-upper (kind token)
+  (pcase (cons kind token)
+    (`(:elem . basic) a68-indent-level)
+    ;; (`(,_ . ",") (smie-rule-separator kind))
+    (`(,_ . ",") (smie-rule-separator kind))
+    (`(,_ . ";") (when (smie-rule-parent-p)
+                   (smie-rule-parent)))
+    (`(:after . ":=") a68-indent-level)
+    (`(:after . "=") a68-indent-level)
+    (`(:before . "BEGIN")
+     (when (or (smie-rule-hanging-p)
+               (or
+                (and (or (smie-rule-parent-p "PROC")
+                         (smie-rule-parent-p "OP"))
+                     (smie-rule-prev-p ":"))
+                (smie-rule-parent-p "PROGRAM")))
+       (smie-rule-parent)))
+    (`(:before . "THEN")
+     (when (or (smie-rule-hanging-p)
+               (smie-rule-parent-p "IF"))
+       (smie-rule-parent)))
+    (`(:before . "(")
+     (when (smie-rule-hanging-p)
+       (smie-rule-parent)))
+    (`(:before . "IF")
+     (and (not (smie-rule-bolp))
+          (smie-rule-prev-p "ELSE")
+          (smie-rule-parent)))))
+
 (defun a68--smie-rules-supper (kind token)
   (pcase (cons kind token)
     (`(:elem . basic) a68-indent-level)
@@ -458,47 +516,6 @@
      (and (not (smie-rule-bolp))
           (smie-rule-prev-p "else")
           (smie-rule-parent)))))
-
-(defun a68-beginning-of-defun-supper (&optional count)
-  "Algol 68 specific `beginning-of-defun-function'."
-  (let ((count (or count 1))
-        (case-fold-search nil)
-        res)
-    (while (> count 0)
-      (goto-char (save-excursion
-                   (while (and (re-search-backward (rx bow (or "proc" "op") eow) nil t)
-                               (a68-within-string-or-comment)))
-                   (setq res (point))))
-      (setq count (1- count )))
-    res))
-
-(defun a68-syntax-propertize-function-supper (start end)
-  (let ((case-fold-search nil))
-    (goto-char start)
-    (funcall
-     (syntax-propertize-rules
-      ((rx (group "#")
-           (*? anychar)
-           (group "#"))
-       (1 (when (not (a68-within-string)) (string-to-syntax "<")))
-       (2 (when (not (a68-within-string)) (string-to-syntax ">")))
-       (0 (ignore (put-text-property (match-beginning 0) (match-end 0)
-                                     'syntax-multiline t))))
-      ((rx bow (group "c") "omment" eow
-           (*? anychar)
-           bow "commen" (group "t") eow)
-       (1 (when (not (a68-within-string)) (string-to-syntax "< b")))
-       (2 (when (not (a68-within-string)) (string-to-syntax "> b")))
-       (0 (ignore (put-text-property (match-beginning 0) (match-end 0)
-                                     'syntax-multiline t))))
-      ((rx bow (group "c") "o" eow
-           (*? anychar)
-           bow "c" (group "o") eow)
-       (1 (when (not (a68-within-string)) (string-to-syntax "< c")))
-       (2 (when (not (a68-within-string)) (string-to-syntax "> c")))
-       (0 (ignore (put-text-property (match-beginning 0) (match-end 0)
-                                     'syntax-multiline t)))))
-     (point) end)))
 
 ;;;; Stropping utilities and commands.
 
