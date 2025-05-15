@@ -188,6 +188,7 @@
       "union" "op" "prio" "mode" "begin" "end" "exit" "par" "if"
       "then" "elif" "else" "fi" "case" "in" "ouse" "out" "esac"
       "nil" "of" "go" "goto" "skip" "for" "from" "by" "to" "while"
+      "module" "def" "fed" "postlude" "access" "pub"
       "do" "od" "unsafe" "assert")
     "List of Algol 68 keywords in SUPPER stropping."))
 
@@ -368,9 +369,7 @@ with the equivalent upcased form."
     (exp (ids)
          (exp "of" exp)
          (exp "[" exp "]")
-         ("(" exp ")")
-         ("begin" exp "end")
-         ("module" exp "def" exp "fed")
+         ("module" exp "def"  exp "fed")
          ("module" exp "def" exp "postlude" exp "fed"))
     ;; Declarations:
     (declaration (type-decl)
@@ -399,8 +398,7 @@ with the equivalent upcased form."
     ;;  primary one :
     ;;    slice call ; cast ; string denoter ; identifier ;
     ;;    jump ; enclosed clause.
-    (unit (id ":=" exp)
-          ; (routine-text)
+    (unit ; (routine-text)
           (assignation)
           (pseudo-operator))
     (assignation (tertiary ":=" unit))
@@ -495,8 +493,12 @@ with the equivalent upcased form."
     ;;   series.
     (enquiry-clause (serial))
     ;; Clauses:
-    (enclosed-clause (choice-clause)
+    (enclosed-clause (closed-clause)
+                     (choice-clause)
                      (loop-clause))
+    ;; Closed clause.
+    (closed-clause ("begin" serial "end")
+                   ("(" serial ")"))
     ;; Choice clauses
     ;;   choice clause :
     ;;     choice start, chooser choice clause, choice finish.
@@ -577,6 +579,7 @@ with the equivalent upcased form."
     (pragmat ("-pr-" exp "pr"))
     (serial (serial ";" serial)
             (unit)
+            (module)
             ("-label-" unit)
             (declaration)
             (pragmat)))
