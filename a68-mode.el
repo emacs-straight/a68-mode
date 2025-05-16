@@ -354,6 +354,7 @@ with the equivalent upcased form."
 
 (defconst a68--bnf-grammar
   '((id)
+    (field-selector)
     (ids (id "-anchor-" id))
     (fields (fields "," fields)
             (ids))
@@ -363,7 +364,7 @@ with the equivalent upcased form."
     (fargs (fargs "," fargs)
            (modal)
            (exp))
-    (modal ("-mode-" type-decl**))
+    (modal ("-mode-" mode-indication))
     (specs (specs "," specs)
            (spec))
     (exp (ids)
@@ -371,134 +372,74 @@ with the equivalent upcased form."
          (exp "[" exp "]")
          ("module" exp "def"  exp "fed")
          ("module" exp "def" exp "postlude" exp "fed"))
-    ;; Declarations:
-    (declaration (type-decl)
-                 (proc-decl))
-    (type-decl ("mode" type-decl*))
-    (type-decl* (type-decl* "," type-decl*)
-                (id "=" type-decl**))
-    (type-decl** ("struct" args)
-                 ("union" args)
-                 ("proc" args))
-    (op-decl (op-decl "," op-decl)
-             ("op" ids "=" args ids ":" exp))
-    (proc-decl (proc-decl "," proc-decl)
-               ("op" ids "=" args ids ":" exp)
-               ("proc" ids "=" ids ":" exp))
-    ;; Units:
-    ;;  unit :
-    ;;    assignation ; identity relation ; routine text ;
-    ;;    function and ; function or ; tertiary.
-    ;;  tertiary :
-    ;;    formula ; secondary.
-    ;;  secondary :
-    ;;    leap generator ; selection ; primary.
-    ;;  primary :
-    ;;    primary one ; other denote ; skip token ; nil token.
-    ;;  primary one :
-    ;;    slice call ; cast ; string denoter ; identifier ;
-    ;;    jump ; enclosed clause.
-    (unit ; (routine-text)
-          (assignation)
-          (pseudo-operator))
-    (assignation (tertiary ":=" unit))
-    (tertiary (formula)
-              (secondary))
-    (secondary (leap-geneator)
-               (selection)
-               (primary))
-    (primary (primary-one)
-             (other-denote)
-             ("skip")
-             ("~")
-             ("nil"))
-    (primary-one (slice-call)
-                 (cast)
-                 (string-denoter)
-                 (id)
-                 (jump)
-                 (enclosed-clause))
-    (jump ("goto" id)
-          ("go" "-to-jump-" id))
-    (pseudo-operator (exp "andth" exp)
-                     (exp "orel" exp)
-                     (exp ":=:" exp)
-                     (exp ":/=:" exp)
-                     (exp "is" exp)
-                     (exp "isnt" exp))
-    (selection (id "of" secondary))
-    ;; Formula.
-    ;; Standard operators are given their priority.
-    (formula (dyadic-formula)
-             (monadic-formula))
-    (monadic-formula ("-monadic~-" monadic-operand)
-                     ("-monadic+-" monadic-operand)
-                     ("-monadic--" monadic-operand))
-    (dyadic-formula (operand "-oper-" monadic-operand)
-                    (operand "+:=" monadic-operand)
-                    (operand "-:=" monadic-operand)
-                    (operand "*:=" monadic-operand)
-                    (operand "/:=" monadic-operand)
-                    (operand "%:=" monadic-operand)
-                    (operand "%*:=" monadic-operand)
-                    (operand "+=:" monadic-operand)
-                    (operand "PLUSAB" monadic-operand)
-                    (operand "MINUSAB" monadic-operand)
-                    (operand "TIMESAB" monadic-operand)
-                    (operand "DIVAB" monadic-operand)
-                    (operand "OVERAB" monadic-operand)
-                    (operand "MODAB" monadic-operand)
-                    (operand "PLUSTO" monadic-operand)
-                    (operand "OR" monadic-operand)
-                    (operand "AND" monadic-operand)
-                    (operand "XOR" monadic-operand)
-                    (operand "=" monadic-operand)
-                    (operand "/=" monadic-operand)
-                    (operand "<" monadic-operand)
-                    (operand "<=" monadic-operand)
-                    (operand ">" monadic-operand)
-                    (operand ">=" monadic-operand)
-                    (operand "EQ" monadic-operand)
-                    (operand "NE" monadic-operand)
-                    (operand "LT" monadic-operand)
-                    (operand "LE" monadic-operand)
-                    (operand "GT" monadic-operand)
-                    (operand "GE" monadic-operand)
-                    (operand "+" monadic-operand)
-                    (operand "-" monadic-operand)
-                    (operand "*" monadic-operand)
-                    (operand "/" monadic-operand)
-                    (operand "OVER" monadic-operand)
-                    (operand "%" monadic-operand)
-                    (operand "MOD" monadic-operand)
-                    (operand "%*" monadic-operand)
-                    (operand "ELEM" monadic-operand)
-                    (operand "**" monadic-operand)
-                    (operand "SHL" monadic-operand)
-                    (operand "SHR" monadic-operand)
-                    (operand "UP" monadic-operand)
-                    (operand "DOWN" monadic-operand)
-                    (operand "^" monadic-operand)
-                    (operand "LWB" monadic-operand)
-                    (operand "UPB" monadic-operand)
-                    (operand "I" monadic-operand)
-                    (operand "+*" monadic-operand)
-                    (operand "ELEMS" monadic-operand))
-    (operand (formula)
-             (secondary))
-    (monadic-operand (monadic-formula)
-                     (secondary))
-    ;; Enquiry clause:
+    ;; Compilation inputs
+    ;; ==================
+    (compilation-input (labeled-enclosed-clause)
+                       (module-declaration))
+    (labeled-enclosed-clause ("-label-" labeled-enclosed-clause)
+                              ("-label-" enclosed-clause))
+    ;; Clauses
+    ;; =======
+    (enclosed-clause (closed-clause)
+                     (choice-clause)
+                     (loop-clause)
+                     (access-clause))
+    ;; Access clause
+    ;; -------------
+    ;;   access clause :
+    ;;     revelation, invoke insert, enclosed clause.
+    ;;   revelation :
+    ;;     access token, joined module call, ssecca insert.
+    ;;   joined module call :
+    ;;     module call, (separate and also token, joined module call).
+    ;;   module call :
+    ;;     (public token), invocation.
+    ;;   invocation :
+    ;;     module indication.
+    (access-clause ("access" joined-module-call "-ssecca-" enclosed-clause))
+    (joined-module-call (joined-module-call "," joined-module-call)
+                        (invocation)
+                        ("pub" invocation))
+    (invocation ("-bold-"))
+    ;; Closed clause
+    ;; -------------
+    ;;   closed or collateral clause :
+    ;;     begin, inner clause, end.
+    ;;   begin :
+    ;;     bold begin token ; brief begin token.
+    ;;   end :
+    ;;     bold end token ; brief end token.
+    ;;   inner clause :
+    ;;     serial clause ;
+    ;;     (joined portrait).
+    (closed-clause ("begin" serial "end")
+                   ("(" serial ")"))
+    ;; Serial clause
+    ;; -------------
+    ;;   serial clause :
+    ;;     series.
+    ;;   series :
+    ;;     train, (completion token, series).
+    ;;   train :
+    ;;     declun, go on token, train ; lunit.
+    ;;   declun :
+    ;;     declaration ; lunit.
+    ;;   lunit :
+    ;;     label definition, lunit ; unit.
+    ;;   label definition :
+    ;;     identifier, label token.
+    (pragmat ("-pr-" exp "pr"))
+    (serial (serial ";" serial)
+            (unit)
+            (module)
+            ("-label-" unit)
+            (declaration)
+            (pragmat))
+    ;; Enquiry clause
+    ;; --------------
     ;;  enquiry clause :
     ;;   series.
     (enquiry-clause (serial))
-    ;; Clauses:
-    (enclosed-clause (closed-clause)
-                     (choice-clause)
-                     (loop-clause))
-    ;; Closed clause.
-    (closed-clause ("begin" serial "end")
-                   ("(" serial ")"))
     ;; Choice clauses
     ;;   choice clause :
     ;;     choice start, chooser choice clause, choice finish.
@@ -576,14 +517,267 @@ with the equivalent upcased form."
                  ("-to-" serial "do" serial "od")
                  ("-while-" serial "do" serial "od")
                  ("-do-" serial "od"))
-    (pragmat ("-pr-" exp "pr"))
-    (serial (serial ";" serial)
-            (unit)
-            (module)
-            ("-label-" unit)
-            (declaration)
-            (pragmat)))
-  "Algol 68 BNF operator precedence grammar to use with SMIE")
+    ;; Declarations
+    ;; ============
+    ;;   declaration :
+    ;;     publety ldecety declaration,
+    ;;       (separate and also token, declaration).
+    ;;   publety ldecety declaration :
+    ;;     (public token), ldecety declaration.
+    ;;   ldecety declaration :
+    ;;     (ldec token), common declaration.
+    ;;   common declaration :
+    ;;     mode declaration ; priority declaration ;
+    ;;     identifier declaration ; operation declaration ;
+    ;;     module declaration.
+    (declaration ("pub" declaration*)
+                 (declaration*))
+    (declaration* (mode-declaration)
+                  (priority-declaration)
+                  (identifier-declaration)
+                  (operation-declaration)
+                  (module-declaration))
+    ;; Mode declarations
+    ;; -----------------
+    ;;   mode declaration :
+    ;;     mode token, mode joined definition.
+    ;;   mode joined definition :
+    ;;     (mode joined definition, and also token), mode definition.
+    ;;   mode definition :
+    ;;     defined mode indication, is defined as token, declarer.
+    ;;   defined mode indication :
+    ;;     mode indication.
+    (mode-declaration ("mode" mode-joined-definition))
+    (mode-joined-definition (mode-joined-definition "," mode-joined-definition)
+                            (mode-definition))
+    (mode-definition (mode-indication "-bold=-" declarer))
+    (mode-indication ("-bold-"))
+    ;; Priority declarations
+    ;; ---------------------
+    ;;   priority declaration :
+    ;;     priority token, priority joined definition.
+    ;;   priority joined definition :
+    ;;     (priority joined definition, and also token), priority definition.
+    ;;   priority definition :
+    ;;     operator, is defined as token, priority unit.
+    ;;   priority unit :
+    ;;     digit token.
+    (priority-declaration ("prio" priority-joined-definition))
+    (priority-joined-definition (priority-joined-definition "," priority-joined-definition)
+                                (priority-definition))
+    (priority-definition (operator "-op=-" priority-unit))
+    (operator ("-oper-"))
+    (priority-unit ("1") ("2") ("3") ("4") ("5")
+                   ("6") ("7") ("8") ("9"))
+    ;; Operation declarations
+    ;; ----------------------
+    ;;   operation declaration :
+    ;;     operation token, operation joined definition.
+    ;;   operation joined definition :
+    ;;     (operation joined definition, and also token),
+    ;;     operation definition.
+    ;;   operation definition :
+    ;;     operator, is defined as token, routine text.
+    ;;   operator :
+    ;;     defining operator.
+    (operation-declaration ("op" operation-joined-definition))
+    (operation-joined-definition (operation-joined-definition "," operation-joined-definition)
+                                 (operation-definition))
+    (operation-definition (operator "-op=-" routine-text)
+                          (operator "-op=-" operator-indication)
+                          (operator-indication "-op=-" routine-text)
+                          (operator-indication "-op=-" operator-indication))
+    (operator-indication ("-bold-"))
+    ;; Declarers
+    ;; ---------
+    ;;    declarer :
+    ;;      nonproc declarer; procedure declarator.
+    ;;    nonproc declarer :
+    ;;      reference to declarator ; structured with declarator ;
+    ;;      flexible rows of declarator ; rows of declarator ;
+    ;;      union of declarator ; mode indication.
+    ;;    reference to declarator :
+    ;;      reference to token, declarer.
+    ;;    structured with declarator :
+    ;;      structure token, portrayer pack.
+    ;;    portrayer pack :
+    ;;      brief begin token, portrayer, brief end token.
+    ;;    portrayer :
+    ;;      common portrayer, (separate and also token, portrayer).
+    ;;    common portrayer :
+    ;;      declarer, dectag insert, joined definition of field.
+    ;;    joined definition of field :
+    ;;      (joined definition of fields, and also token), field selector.
+    ;;    flexible rows of declarator :
+    ;;      flexible token, declarer.
+    ;;    rows of declarator :
+    ;;      rower bracket, row insert, declarer.
+    ;;    rower bracket :
+    ;;      brief sub token, rower, brief bus token;
+    ;;      style i sub token, rower, style i bus token.
+    ;;    rower :
+    ;;      (rower, and also token), row rower.
+    ;;    rower part :
+    ;;      (unit), up to token.
+    ;;    procedure declarator :
+    ;;      procedure token, formal procedure plan.
+    ;;    formal procedure plan :
+    ;;      (joined declarer pack, formals insert), declarer.
+    ;;    joined declarer pack :
+    ;;      brief begin token, joined declarer, brief end token.
+    ;;    joined declarer :
+    ;;      (joined declarer, and also token), declarer.
+    ;;    union of declarator :
+    ;;      union of token, joined declarer pack.
+    (declarer (nonproc-declarer)
+              (procedure-declarator))
+    (nonproc-declarer ("ref" declarer)
+                      ("struct" portrayer-pack)
+                      ;;(structured-with-declarator)
+                      ;;(flexible-rows-of-declarator)
+                      ;;(rows-of-declarator)
+                      ;;(union-of-declarator)
+                      (mode-indication)
+                      ("-stdmode-"))
+    (portrayer-pack ("(" portrayer ")"))
+    (portrayer (portrayer "," portrayer)
+               (declarer "-dectag-") ; XXX handle insert in lexer.
+               (id))
+    ;; Units
+    ;; =====
+    ;;  unit :
+    ;;    assignation ; identity relation ; routine text ;
+    ;;    function and ; function or ; tertiary.
+    ;;  tertiary :
+    ;;    formula ; secondary.
+    ;;  secondary :
+    ;;    leap generator ; selection ; primary.
+    ;;  primary :
+    ;;    primary one ; other denote ; skip token ; nil token.
+    ;;  primary one :
+    ;;    slice call ; cast ; string denoter ; identifier ;
+    ;;    jump ; enclosed clause.
+    (unit ; (routine-text)
+          (assignation)
+          (pseudo-operator)
+          (tertiary))
+    (tertiary (formula)
+              (secondary))
+    (secondary (leap-geneator)
+               (selection)
+               (primary))
+    (primary (primary-one)
+             (other-denote)
+             ("skip")
+             ("~")
+             ("nil"))
+    (primary-one (slice-call)
+                 (cast)
+                 (string-denoter)
+                 (id)
+                 (jump)
+                 (enclosed-clause))
+    ;; Assignations
+    ;; ------------
+    (assignation (tertiary ":=" unit))
+    ;; Pseudo-operators
+    ;; ----------------
+    (pseudo-operator (tertiary "andth" tertiary)
+                     (tertiary "orel" tertiary)
+                     (tertiary ":=:" tertiary)
+                     (tertiary ":/=:" tertiary)
+                     (tertiary "is" tertiary)
+                     (tertiary "isnt" tertiary))
+    ;; Generators
+    ;; ----------
+    (leap-generator ("heap" declarer)
+                    ("loc" declarer))
+    ;; Selections
+    ;; ----------
+    (selection (id "of" secondary))
+    ;; Slices
+    ;; ------
+    ;; XXX
+    ;; Routine texts
+    ;; -------------
+    ;; XXX
+    ;; Formulas
+    ;; --------
+    (formula (dyadic-formula)
+             (monadic-formula))
+    (dyadic-formula (operand "-oper-" monadic-operand)
+                    (operand "+:=" monadic-operand)
+                    (operand "-:=" monadic-operand)
+                    (operand "*:=" monadic-operand)
+                    (operand "/:=" monadic-operand)
+                    (operand "%:=" monadic-operand)
+                    (operand "%*:=" monadic-operand)
+                    (operand "+=:" monadic-operand)
+                    (operand "PLUSAB" monadic-operand)
+                    (operand "MINUSAB" monadic-operand)
+                    (operand "TIMESAB" monadic-operand)
+                    (operand "DIVAB" monadic-operand)
+                    (operand "OVERAB" monadic-operand)
+                    (operand "MODAB" monadic-operand)
+                    (operand "PLUSTO" monadic-operand)
+                    (operand "OR" monadic-operand)
+                    (operand "AND" monadic-operand)
+                    (operand "XOR" monadic-operand)
+                    (operand "=" monadic-operand)
+                    (operand "/=" monadic-operand)
+                    (operand "<" monadic-operand)
+                    (operand "<=" monadic-operand)
+                    (operand ">" monadic-operand)
+                    (operand ">=" monadic-operand)
+                    (operand "EQ" monadic-operand)
+                    (operand "NE" monadic-operand)
+                    (operand "LT" monadic-operand)
+                    (operand "LE" monadic-operand)
+                    (operand "GT" monadic-operand)
+                    (operand "GE" monadic-operand)
+                    (operand "+" monadic-operand)
+                    (operand "-" monadic-operand)
+                    (operand "*" monadic-operand)
+                    (operand "/" monadic-operand)
+                    (operand "OVER" monadic-operand)
+                    (operand "%" monadic-operand)
+                    (operand "MOD" monadic-operand)
+                    (operand "%*" monadic-operand)
+                    (operand "ELEM" monadic-operand)
+                    (operand "**" monadic-operand)
+                    (operand "SHL" monadic-operand)
+                    (operand "SHR" monadic-operand)
+                    (operand "UP" monadic-operand)
+                    (operand "DOWN" monadic-operand)
+                    (operand "^" monadic-operand)
+                    (operand "LWB" monadic-operand)
+                    (operand "UPB" monadic-operand)
+                    (operand "I" monadic-operand)
+                    (operand "+*" monadic-operand)
+                    (operand "ELEMS" monadic-operand))
+    (monadic-formula ("-monadic~-" monadic-operand)
+                     ("-monadic+-" monadic-operand)
+                     ("-monadic--" monadic-operand))
+    (operand (formula)
+             (secondary))
+    (monadic-operand (monadic-formula)
+                     (secondary))
+    ;; Jumps
+    ;; -----
+    (jump ("goto" id)
+          ("go" "-to-jump-" id))
+    ;; Casts
+    ;; -----
+    (cast (declarer "-cast-" enclosed-clause)))
+  "Algol 68 BNF operator precedence grammar to use with SMIE.
+
+This grammar has been adapted from the Algol 68+ operator precedence
+grammar described by L.G.L.T Meertens and J.C. van Vliet in their
+article \"An operator-priority grammar for Algol 68+\".  The grammar is
+simplified to adapt it to the purpose of indentation, to work well with
+SMIE, and to denote Algol 68 as oppossed to Algol 68+, which is a
+superlanguage of Algol 68 that is capable of expressing the code for the
+standard prelude described in the Revised Report.")
 
 (defvar a68--smie-grammar-upper
   (smie-prec2->grammar
@@ -608,6 +802,27 @@ with the equivalent upcased form."
 
 (defvar a68--keywords-regexp
   (regexp-opt '("|:" "(" ")" "+" "*" ";" ">" "<" ":=" "=" "," ":" "~")))
+
+(defconst a68--monads
+  '("%" "^" "&" "+" "-" "~" "!" "?"))
+
+(defconst a68--nomads
+  '(">" "<" "/" "=" "*"))
+
+;; An operator indication is:
+;; - A bold tag, or.
+;; - Any monad, or
+;; - A monad followed by a nomad, or
+;; - A monad optionally followed by a nomad followd by either
+;;   := or =:, but not by both.
+(defvar a68--oper-regexp
+  (concat "\\("
+          "\\(" (regexp-opt a68--monads) "\\)"
+          "\\|"
+          "\\(" (regexp-opt a68--monads) (regexp-opt a68--nomads) "\\)"
+          "\\|"
+          "\\(" (regexp-opt a68--monads) (regexp-opt a68--nomads) "?" "\\(:=\\|=:\\)" "\\)"
+          "\\)"))
 
 (defun a68-at-strong-void-enclosed-clause-supper ()
   "Return whether the point is at the beginning of a VOID enclosed clause."
@@ -682,6 +897,35 @@ with the equivalent upcased form."
   (forward-comment (point-max))
   (let ((case-fold-search nil))
     (cond
+     ;; Standard mode indicators.
+     ((looking-at (concat "\\<" (regexp-opt a68-std-modes-supper) "\\>"))
+      (goto-char (match-end 0))
+      "-stdmode-")
+     ;; operator.
+     ((posix-looking-at a68--oper-regexp)
+      (goto-char (match-end 0))
+      "-oper-")
+     ;; = can be an equal operator or an is-defined-token.
+     ((looking-at "=")
+      (let ((token (cond
+                    ((looking-back "\\<[A-Z][A-Za-z_]+\\>[ \n\t]*")
+                     "-bold=-")
+                    ((looking-back (concat a68--oper-regexp "[ \n\t]*"))
+                     "-op=-")
+                    (t
+                      "="))))
+        (goto-char (+ (point) 1))
+        token))
+     ;; A bold-word may be a ssecca insert if it is preceded by a
+     ;; joined list of bold words, preceded by access.
+     ((looking-at "[A-Z][A-Za-z_]+")
+      (let* ((end (match-end 0))
+             (token (if (and (not (looking-at "[A-Z][A-Za-z_]+[ \t\n]*,"))
+                             (looking-back "access[ \t\n]*\\([ \t\n]*[A-Z][A-Za-z_]+[ \t\n]*,\\)*[ \t\n]*"))
+                        "-ssecca-"
+                      "-bold-")))
+        (goto-char end)
+        token))
      ;; A semicolon following a tag is a label, but mind standard modes.
      ((and (looking-at "\\<[a-z]+:")
            (let ((beg (match-beginning 0))
@@ -691,6 +935,22 @@ with the equivalent upcased form."
                           a68-std-modes-supper))))
       (goto-char (match-end 0))
       "-label-")
+     ;; We consider that any tag following a bold word or a standard
+     ;; moe is a defining identifier.  We are not handling many case
+     ;; that would require more extensive parsing, such as tags
+     ;; following commas.
+     ((looking-at "\\<[a-z]+\\>")
+      (let* ((end (match-end 0))
+             (tag (buffer-substring-no-properties (match-beginning 0) end))
+             (token (if (or (looking-back "[A-Z][A-Za-z_]+[ \t\n]+" (pos-bol))
+                            (and (looking-back "\\<\\([a-z][a-z_]*\\)\\>[ \t\n]+" (pos-bol))
+                                 (member (buffer-substring-no-properties (match-beginning 1)
+                                                                         (match-end 1))
+                                         a68-std-modes-supper)))
+                        "-dectag-"
+                      tag)))
+        (goto-char end)
+        token))
      ;; defining-modal-indications "mode MODE" are preceded by either (
      ;; or , in formal-parameter packs.
      ((looking-at "\\<mode\\>")
@@ -793,6 +1053,32 @@ with the equivalent upcased form."
   (forward-comment (- (point)))
   (let ((case-fold-search nil))
     (cond
+     ;; Standard mode indicators.
+     ((looking-back (concat "\\<" (regexp-opt a68-std-modes-supper) "\\>")
+                    (pos-bol))
+      (goto-char (match-beginning 0))
+      "-stdmode-")
+     ;; operator, so any nomad or monad.
+     ((looking-back a68--oper-regexp
+                    (pos-bol))
+      (goto-char (match-beginning 0))
+      "-oper-")
+     ((looking-back "=")
+      (let ((token (cond
+                    ((looking-back "\\<[A-Z][A-Za-z_]+\\>[ \n\t]*=")
+                     "-bold=-")
+                    ((looking-back (concat a68--oper-regexp "[ \n\t]*="))
+                     "-op=-")
+                    (t
+                     "="))))
+        (goto-char (- (point) 1))
+        token))
+     ((looking-back "[A-Z][A-Za-z_]+" (pos-bol))
+      (goto-char (match-beginning 0))
+      (if (and (not (looking-at "[A-Z][A-Za-z_]+[ \t\n]*,"))
+               (looking-back "access[ \t\n]*\\([ \t\n]*[A-Z][A-Za-z_]+[ \t\n]*,\\)*[ \t\n]*"))
+          "-ssecca-"
+        "-bold-"))
      ((and (looking-back "\\<[a-z]+:" (pos-bol))
            (let ((beg (match-beginning 0))
                  (end (match-end 0)))
@@ -801,6 +1087,17 @@ with the equivalent upcased form."
                           a68-std-modes-supper))))
       (goto-char (match-beginning 0))
       "-label-")
+     ((looking-back "\\<[a-z]+\\>" (pos-bol))
+      (let ((tag (buffer-substring-no-properties (match-beginning 0)
+                                                 (match-end 0))))
+        (goto-char (match-beginning 0))
+        (if (or (looking-back "[A-Z][A-Za-z_]+[ \t\n]+" (pos-bol))
+                (and (looking-back "\\<\\([a-z][a-z_]*\\)\\>[ \t\n]+" (pos-bol))
+                     (member (buffer-substring-no-properties (match-beginning 1)
+                                                             (match-end 1))
+                             a68-std-modes-supper)))
+            "-dectag-"
+          tag)))
      ((looking-back "\\<mode\\>" (- (point) 4))
       (goto-char (- (point) 4))
       (if (looking-back "[(,][ \t\n]*" nil)
@@ -948,10 +1245,55 @@ UPPER stropping version."
   (forward-comment (point-max))
   (let ((case-fold-search nil))
     (cond
+     ;; Standard mode indicators.
+     ((looking-at (concat "\\<" (regexp-opt a68-std-modes-upper) "\\>"))
+      (goto-char (match-end 0))
+      "-stdmode-")
+     ;; operator.
+     ((posix-looking-at a68--oper-regexp)
+      (goto-char (match-end 0))
+      "-oper-")
+     ;; = can be an equal operator or an is-defined-token.
+     ((looking-at "=")
+      (let ((token (cond
+                    ((looking-back "\\<[A-Z][A-Z_]+\\>[ \n\t]*")
+                     "-bold=-")
+                    ((looking-back (concat a68--oper-regexp "[ \n\t]*"))
+                     "-op=-")
+                    (t
+                      "="))))
+        (goto-char (+ (point) 1))
+        token))
+     ;; A bold-word may be a ssecca insert if it is preceded by a
+     ;; joined list of bold words, preceded by access.
+     ((looking-at "[A-Z][A-Z_]+")
+      (let* ((end (match-end 0))
+             (token (if (and (not (looking-at "[A-Z][A-Z_]+[ \t\n]*,"))
+                             (looking-back "access[ \t\n]*\\([ \t\n]*[A-Z][A-Z_]+[ \t\n]*,\\)*[ \t\n]*"))
+                        "-ssecca-"
+                      "-bold-")))
+        (goto-char end)
+        token))
      ;; A semicolon following a tag is a label.
      ((looking-at "\\<[a-z]+:")
       (goto-char (match-end 0))
       "-label-")
+     ;; We consider that any tag following a bold word or a standard
+     ;; moe is a defining identifier.  We are not handling many case
+     ;; that would require more extensive parsing, such as tags
+     ;; following commas.
+     ((looking-at "\\<[a-z]+\\>")
+      (let* ((end (match-end 0))
+             (tag (buffer-substring-no-properties (match-beginning 0) end))
+             (token (if (or (looking-back "[A-Z][A-Z_]+[ \t\n]+" (pos-bol))
+                            (and (looking-back "\\<\\([a-z][a-z_]*\\)\\>[ \t\n]+" (pos-bol))
+                                 (member (buffer-substring-no-properties (match-beginning 1)
+                                                                         (match-end 1))
+                                         a68-std-modes-upper)))
+                        "-dectag-"
+                      tag)))
+        (goto-char end)
+        token))
      ;; defining-modal-indications "mode MODE" are preceded by either
      ;; ( or , in formal-parameter packs.
      ((looking-at "\\<MODE\\>")
@@ -1054,9 +1396,46 @@ UPPER stropping version."
   (forward-comment (- (point)))
   (let ((case-fold-search nil))
     (cond
+     ;; Standard mode indicators.
+     ((looking-back (concat "\\<" (regexp-opt a68-std-modes-upper) "\\>")
+                    (pos-bol))
+      (goto-char (match-beginning 0))
+      "-stdmode-")
+     ;; operator, so any nomad or monad.
+     ((looking-back a68--oper-regexp
+                    (pos-bol))
+      (goto-char (match-beginning 0))
+      "-oper-")
+     ((looking-back "=")
+      (let ((token (cond
+                    ((looking-back "\\<[A-Z][A-Z_]+\\>[ \n\t]*=")
+                     "-bold=-")
+                    ((looking-back (concat a68--oper-regexp "[ \n\t]*="))
+                     "-op=-")
+                    (t
+                     "="))))
+        (goto-char (- (point) 1))
+        token))
+     ((looking-back "[A-Z][A-Z]+" (pos-bol))
+      (goto-char (match-beginning 0))
+      (if (and (not (looking-at "[A-Z][A-Z_]+[ \t\n]*,"))
+               (looking-back "access[ \t\n]*\\([ \t\n]*[A-Z][A-Z_]+[ \t\n]*,\\)*[ \t\n]*"))
+          "-ssecca-"
+        "-bold-"))
      ((looking-back "\\<[a-z]+:" (pos-bol))
       (goto-char (match-beginning 0))
       "-label-")
+     ((looking-back "\\<[a-z]+\\>" (pos-bol))
+      (let ((tag (buffer-substring-no-properties (match-beginning 0)
+                                                 (match-end 0))))
+        (goto-char (match-beginning 0))
+        (if (or (looking-back "[A-Z][A-Z_]+[ \t\n]+" (pos-bol))
+                (and (looking-back "\\<\\([a-z][a-z_]*\\)\\>[ \t\n]+" (pos-bol))
+                     (member (buffer-substring-no-properties (match-beginning 1)
+                                                             (match-end 1))
+                             a68-std-modes-upper)))
+            "-dectag-"
+          tag)))
      ((looking-back "\\<MODE\\>" (- (point) 4))
       (goto-char (- (point) 4))
       (if (looking-back "[(,][ \t\n]*" nil)
@@ -1156,6 +1535,8 @@ UPPER stropping version."
     (`(:after . "TO") 3)
     (`(:after . "WHILE") 3)
     (`(:after . "DEF") 4)
+    (`(:before . "-ssecca-")
+     (smie-rule-parent 7))
     (`(:before . "-label-")
      (smie-rule-parent))
     (`(:before . "BEGIN")
@@ -1164,7 +1545,8 @@ UPPER stropping version."
                 (and (or (smie-rule-parent-p "PROC")
                          (smie-rule-parent-p "OP"))
                      (smie-rule-prev-p ":"))
-                (smie-rule-parent-p "PROGRAM")))
+                (smie-rule-parent-p "PROGRAM")
+                (smie-rule-parent-p "ACCESS")))
        (smie-rule-parent)))
     (`(:before . "THEN")
      (when (or (smie-rule-hanging-p)
@@ -1201,6 +1583,8 @@ UPPER stropping version."
     (`(:after . "to") 3)
     (`(:after . "while") 3)
     (`(:after . "def") 4)
+    (`(:before . "-ssecca-")
+     (smie-rule-parent 7))
     (`(:before . "-label-")
      (smie-rule-parent))
     (`(:before . "begin")
@@ -1209,7 +1593,8 @@ UPPER stropping version."
                 (and (or (smie-rule-parent-p "proc")
                          (smie-rule-parent-p "op"))
                      (smie-rule-prev-p ":"))
-                (smie-rule-parent-p "program")))
+                (smie-rule-parent-p "program")
+                (smie-rule-parent-p "access")))
        (smie-rule-parent)))
     (`(:before . "then")
      (when (or (smie-rule-hanging-p)
