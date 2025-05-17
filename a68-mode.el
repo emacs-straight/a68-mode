@@ -354,7 +354,7 @@ with the equivalent upcased form."
 
 (defconst a68--bnf-grammar
   '((id)
-    (field-selector)
+    (declarer)
     (ids (id "-anchor-" id))
     (fields (fields "," fields)
             (ids))
@@ -364,7 +364,7 @@ with the equivalent upcased form."
     (fargs (fargs "," fargs)
            (modal)
            (exp))
-    (modal ("-mode-" mode-indication))
+    (modal ("-mode-" type-decl**))
     (specs (specs "," specs)
            (spec))
     (exp (ids)
@@ -372,6 +372,15 @@ with the equivalent upcased form."
          (exp "[" exp "]")
          ("module" exp "def"  exp "fed")
          ("module" exp "def" exp "postlude" exp "fed"))
+    ;; Declarations:
+    (type-decl** ("struct" args)
+                 ("union" args)
+                 ("proc" args))
+    (op-decl (op-decl "," op-decl)
+             ("op" ids "=" args ids ":" exp))
+    (proc-decl (proc-decl "," proc-decl)
+               ("op" ids "=" args ids ":" exp)
+               ("proc" ids "=" ids ":" exp))
     ;; Compilation inputs
     ;; ==================
     (compilation-input (labeled-enclosed-clause)
@@ -544,14 +553,18 @@ with the equivalent upcased form."
     ;;   mode joined definition :
     ;;     (mode joined definition, and also token), mode definition.
     ;;   mode definition :
-    ;;     defined mode indication, is defined as token, declarer.
+    ;;     defined mode indication, is defined as token, declarer or code.
     ;;   defined mode indication :
     ;;     mode indication.
+    ;;   declarer or code :
+    ;;     declarer ; code.
     (mode-declaration ("mode" mode-joined-definition))
     (mode-joined-definition (mode-joined-definition "," mode-joined-definition)
                             (mode-definition))
-    (mode-definition (mode-indication "-bold=-" declarer))
+    (mode-definition (mode-indication "=" declarer-or-code))
     (mode-indication ("-bold-"))
+    (declarer-or-code (declarer)
+                      (code))
     ;; Priority declarations
     ;; ---------------------
     ;;   priority declaration :
@@ -565,84 +578,10 @@ with the equivalent upcased form."
     (priority-declaration ("prio" priority-joined-definition))
     (priority-joined-definition (priority-joined-definition "," priority-joined-definition)
                                 (priority-definition))
-    (priority-definition (operator "-op=-" priority-unit))
+    (priority-definition (operator "=" priority-unit))
     (operator ("-oper-"))
     (priority-unit ("1") ("2") ("3") ("4") ("5")
                    ("6") ("7") ("8") ("9"))
-    ;; Operation declarations
-    ;; ----------------------
-    ;;   operation declaration :
-    ;;     operation token, operation joined definition.
-    ;;   operation joined definition :
-    ;;     (operation joined definition, and also token),
-    ;;     operation definition.
-    ;;   operation definition :
-    ;;     operator, is defined as token, routine text.
-    ;;   operator :
-    ;;     defining operator.
-    (operation-declaration ("op" operation-joined-definition))
-    (operation-joined-definition (operation-joined-definition "," operation-joined-definition)
-                                 (operation-definition))
-    (operation-definition (operator "-op=-" routine-text)
-                          (operator "-op=-" operator-indication)
-                          (operator-indication "-op=-" routine-text)
-                          (operator-indication "-op=-" operator-indication))
-    (operator-indication ("-bold-"))
-    ;; Declarers
-    ;; ---------
-    ;;    declarer :
-    ;;      nonproc declarer; procedure declarator.
-    ;;    nonproc declarer :
-    ;;      reference to declarator ; structured with declarator ;
-    ;;      flexible rows of declarator ; rows of declarator ;
-    ;;      union of declarator ; mode indication.
-    ;;    reference to declarator :
-    ;;      reference to token, declarer.
-    ;;    structured with declarator :
-    ;;      structure token, portrayer pack.
-    ;;    portrayer pack :
-    ;;      brief begin token, portrayer, brief end token.
-    ;;    portrayer :
-    ;;      common portrayer, (separate and also token, portrayer).
-    ;;    common portrayer :
-    ;;      declarer, dectag insert, joined definition of field.
-    ;;    joined definition of field :
-    ;;      (joined definition of fields, and also token), field selector.
-    ;;    flexible rows of declarator :
-    ;;      flexible token, declarer.
-    ;;    rows of declarator :
-    ;;      rower bracket, row insert, declarer.
-    ;;    rower bracket :
-    ;;      brief sub token, rower, brief bus token;
-    ;;      style i sub token, rower, style i bus token.
-    ;;    rower :
-    ;;      (rower, and also token), row rower.
-    ;;    rower part :
-    ;;      (unit), up to token.
-    ;;    procedure declarator :
-    ;;      procedure token, formal procedure plan.
-    ;;    formal procedure plan :
-    ;;      (joined declarer pack, formals insert), declarer.
-    ;;    joined declarer pack :
-    ;;      brief begin token, joined declarer, brief end token.
-    ;;    joined declarer :
-    ;;      (joined declarer, and also token), declarer.
-    ;;    union of declarator :
-    ;;      union of token, joined declarer pack.
-    (declarer (nonproc-declarer)
-              (procedure-declarator))
-    (nonproc-declarer ("ref" declarer)
-                      ("struct" portrayer-pack)
-                      ;;(structured-with-declarator)
-                      ;;(flexible-rows-of-declarator)
-                      ;;(rows-of-declarator)
-                      ;;(union-of-declarator)
-                      (mode-indication)
-                      ("-stdmode-"))
-    (portrayer-pack ("(" portrayer ")"))
-    (portrayer (portrayer "," portrayer)
-               (declarer "-dectag-") ; XXX handle insert in lexer.
-               (id))
     ;; Units
     ;; =====
     ;;  unit :
@@ -769,15 +708,7 @@ with the equivalent upcased form."
     ;; Casts
     ;; -----
     (cast (declarer "-cast-" enclosed-clause)))
-  "Algol 68 BNF operator precedence grammar to use with SMIE.
-
-This grammar has been adapted from the Algol 68+ operator precedence
-grammar described by L.G.L.T Meertens and J.C. van Vliet in their
-article \"An operator-priority grammar for Algol 68+\".  The grammar is
-simplified to adapt it to the purpose of indentation, to work well with
-SMIE, and to denote Algol 68 as oppossed to Algol 68+, which is a
-superlanguage of Algol 68 that is capable of expressing the code for the
-standard prelude described in the Revised Report.")
+  "Algol 68 BNF operator precedence grammar to use with SMIE")
 
 (defvar a68--smie-grammar-upper
   (smie-prec2->grammar
@@ -815,13 +746,12 @@ standard prelude described in the Revised Report.")
 ;; - A monad followed by a nomad, or
 ;; - A monad optionally followed by a nomad followd by either
 ;;   := or =:, but not by both.
+
 (defvar a68--oper-regexp
-  (concat "\\("
-          "\\(" (regexp-opt a68--monads) "\\)"
-          "\\|"
-          "\\(" (regexp-opt a68--monads) (regexp-opt a68--nomads) "\\)"
-          "\\|"
-          "\\(" (regexp-opt a68--monads) (regexp-opt a68--nomads) "?" "\\(:=\\|=:\\)" "\\)"
+  (concat "\\(?:"
+          (regexp-opt a68--monads)
+          (regexp-opt a68--nomads) "?"
+          "\\(?::=\\|=:\\)?"
           "\\)"))
 
 (defun a68-at-strong-void-enclosed-clause-supper ()
@@ -897,25 +827,10 @@ standard prelude described in the Revised Report.")
   (forward-comment (point-max))
   (let ((case-fold-search nil))
     (cond
-     ;; Standard mode indicators.
-     ((looking-at (concat "\\<" (regexp-opt a68-std-modes-supper) "\\>"))
-      (goto-char (match-end 0))
-      "-stdmode-")
      ;; operator.
-     ((posix-looking-at a68--oper-regexp)
+     ((looking-at a68--oper-regexp)
       (goto-char (match-end 0))
       "-oper-")
-     ;; = can be an equal operator or an is-defined-token.
-     ((looking-at "=")
-      (let ((token (cond
-                    ((looking-back "\\<[A-Z][A-Za-z_]+\\>[ \n\t]*")
-                     "-bold=-")
-                    ((looking-back (concat a68--oper-regexp "[ \n\t]*"))
-                     "-op=-")
-                    (t
-                      "="))))
-        (goto-char (+ (point) 1))
-        token))
      ;; A bold-word may be a ssecca insert if it is preceded by a
      ;; joined list of bold words, preceded by access.
      ((looking-at "[A-Z][A-Za-z_]+")
@@ -935,22 +850,6 @@ standard prelude described in the Revised Report.")
                           a68-std-modes-supper))))
       (goto-char (match-end 0))
       "-label-")
-     ;; We consider that any tag following a bold word or a standard
-     ;; moe is a defining identifier.  We are not handling many case
-     ;; that would require more extensive parsing, such as tags
-     ;; following commas.
-     ((looking-at "\\<[a-z]+\\>")
-      (let* ((end (match-end 0))
-             (tag (buffer-substring-no-properties (match-beginning 0) end))
-             (token (if (or (looking-back "[A-Z][A-Za-z_]+[ \t\n]+" (pos-bol))
-                            (and (looking-back "\\<\\([a-z][a-z_]*\\)\\>[ \t\n]+" (pos-bol))
-                                 (member (buffer-substring-no-properties (match-beginning 1)
-                                                                         (match-end 1))
-                                         a68-std-modes-supper)))
-                        "-dectag-"
-                      tag)))
-        (goto-char end)
-        token))
      ;; defining-modal-indications "mode MODE" are preceded by either (
      ;; or , in formal-parameter packs.
      ((looking-at "\\<mode\\>")
@@ -1053,26 +952,11 @@ standard prelude described in the Revised Report.")
   (forward-comment (- (point)))
   (let ((case-fold-search nil))
     (cond
-     ;; Standard mode indicators.
-     ((looking-back (concat "\\<" (regexp-opt a68-std-modes-supper) "\\>")
-                    (pos-bol))
-      (goto-char (match-beginning 0))
-      "-stdmode-")
      ;; operator, so any nomad or monad.
      ((looking-back a68--oper-regexp
                     (pos-bol))
       (goto-char (match-beginning 0))
       "-oper-")
-     ((looking-back "=")
-      (let ((token (cond
-                    ((looking-back "\\<[A-Z][A-Za-z_]+\\>[ \n\t]*=")
-                     "-bold=-")
-                    ((looking-back (concat a68--oper-regexp "[ \n\t]*="))
-                     "-op=-")
-                    (t
-                     "="))))
-        (goto-char (- (point) 1))
-        token))
      ((looking-back "[A-Z][A-Za-z_]+" (pos-bol))
       (goto-char (match-beginning 0))
       (if (and (not (looking-at "[A-Z][A-Za-z_]+[ \t\n]*,"))
@@ -1087,17 +971,6 @@ standard prelude described in the Revised Report.")
                           a68-std-modes-supper))))
       (goto-char (match-beginning 0))
       "-label-")
-     ((looking-back "\\<[a-z]+\\>" (pos-bol))
-      (let ((tag (buffer-substring-no-properties (match-beginning 0)
-                                                 (match-end 0))))
-        (goto-char (match-beginning 0))
-        (if (or (looking-back "[A-Z][A-Za-z_]+[ \t\n]+" (pos-bol))
-                (and (looking-back "\\<\\([a-z][a-z_]*\\)\\>[ \t\n]+" (pos-bol))
-                     (member (buffer-substring-no-properties (match-beginning 1)
-                                                             (match-end 1))
-                             a68-std-modes-supper)))
-            "-dectag-"
-          tag)))
      ((looking-back "\\<mode\\>" (- (point) 4))
       (goto-char (- (point) 4))
       (if (looking-back "[(,][ \t\n]*" nil)
@@ -1245,25 +1118,6 @@ UPPER stropping version."
   (forward-comment (point-max))
   (let ((case-fold-search nil))
     (cond
-     ;; Standard mode indicators.
-     ((looking-at (concat "\\<" (regexp-opt a68-std-modes-upper) "\\>"))
-      (goto-char (match-end 0))
-      "-stdmode-")
-     ;; operator.
-     ((posix-looking-at a68--oper-regexp)
-      (goto-char (match-end 0))
-      "-oper-")
-     ;; = can be an equal operator or an is-defined-token.
-     ((looking-at "=")
-      (let ((token (cond
-                    ((looking-back "\\<[A-Z][A-Z_]+\\>[ \n\t]*")
-                     "-bold=-")
-                    ((looking-back (concat a68--oper-regexp "[ \n\t]*"))
-                     "-op=-")
-                    (t
-                      "="))))
-        (goto-char (+ (point) 1))
-        token))
      ;; A bold-word may be a ssecca insert if it is preceded by a
      ;; joined list of bold words, preceded by access.
      ((looking-at "[A-Z][A-Z_]+")
@@ -1278,22 +1132,6 @@ UPPER stropping version."
      ((looking-at "\\<[a-z]+:")
       (goto-char (match-end 0))
       "-label-")
-     ;; We consider that any tag following a bold word or a standard
-     ;; moe is a defining identifier.  We are not handling many case
-     ;; that would require more extensive parsing, such as tags
-     ;; following commas.
-     ((looking-at "\\<[a-z]+\\>")
-      (let* ((end (match-end 0))
-             (tag (buffer-substring-no-properties (match-beginning 0) end))
-             (token (if (or (looking-back "[A-Z][A-Z_]+[ \t\n]+" (pos-bol))
-                            (and (looking-back "\\<\\([a-z][a-z_]*\\)\\>[ \t\n]+" (pos-bol))
-                                 (member (buffer-substring-no-properties (match-beginning 1)
-                                                                         (match-end 1))
-                                         a68-std-modes-upper)))
-                        "-dectag-"
-                      tag)))
-        (goto-char end)
-        token))
      ;; defining-modal-indications "mode MODE" are preceded by either
      ;; ( or , in formal-parameter packs.
      ((looking-at "\\<MODE\\>")
@@ -1396,26 +1234,6 @@ UPPER stropping version."
   (forward-comment (- (point)))
   (let ((case-fold-search nil))
     (cond
-     ;; Standard mode indicators.
-     ((looking-back (concat "\\<" (regexp-opt a68-std-modes-upper) "\\>")
-                    (pos-bol))
-      (goto-char (match-beginning 0))
-      "-stdmode-")
-     ;; operator, so any nomad or monad.
-     ((looking-back a68--oper-regexp
-                    (pos-bol))
-      (goto-char (match-beginning 0))
-      "-oper-")
-     ((looking-back "=")
-      (let ((token (cond
-                    ((looking-back "\\<[A-Z][A-Z_]+\\>[ \n\t]*=")
-                     "-bold=-")
-                    ((looking-back (concat a68--oper-regexp "[ \n\t]*="))
-                     "-op=-")
-                    (t
-                     "="))))
-        (goto-char (- (point) 1))
-        token))
      ((looking-back "[A-Z][A-Z]+" (pos-bol))
       (goto-char (match-beginning 0))
       (if (and (not (looking-at "[A-Z][A-Z_]+[ \t\n]*,"))
@@ -1425,17 +1243,6 @@ UPPER stropping version."
      ((looking-back "\\<[a-z]+:" (pos-bol))
       (goto-char (match-beginning 0))
       "-label-")
-     ((looking-back "\\<[a-z]+\\>" (pos-bol))
-      (let ((tag (buffer-substring-no-properties (match-beginning 0)
-                                                 (match-end 0))))
-        (goto-char (match-beginning 0))
-        (if (or (looking-back "[A-Z][A-Z_]+[ \t\n]+" (pos-bol))
-                (and (looking-back "\\<\\([a-z][a-z_]*\\)\\>[ \t\n]+" (pos-bol))
-                     (member (buffer-substring-no-properties (match-beginning 1)
-                                                             (match-end 1))
-                             a68-std-modes-upper)))
-            "-dectag-"
-          tag)))
      ((looking-back "\\<MODE\\>" (- (point) 4))
       (goto-char (- (point) 4))
       (if (looking-back "[(,][ \t\n]*" nil)
