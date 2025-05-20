@@ -99,14 +99,9 @@
   "Default comment style used by e.g. `comment-dwim'."
   :type '(choice (const "#")
                  (const "CO")
-                 (const "COMMENT"))
-  :safe #'consp)
-
-(defcustom a68-comment-style-supper "#"
-  "Default comment style used by e.g. `comment-dwim'."
-  :type '(choice (const "#")
-                 (const "co")
-                 (const "comment"))
+                 (const "COMMENT")
+                 (const "NOTE")
+                 (const "{"))
   :safe #'consp)
 
 ;;;; Syntax table for the a68-mode.
@@ -117,6 +112,9 @@
     (modify-syntax-entry ?, "." st)
     (modify-syntax-entry ?: "." st)
     (modify-syntax-entry ?_ "w" st)
+    ;; Note { and } are nestable.
+    (modify-syntax-entry ?{ "< n" st)
+    (modify-syntax-entry ?} "> n" st)
     ;; define parentheses to match
     (modify-syntax-entry ?\( "()" st)
     (modify-syntax-entry ?\) ")(" st)
@@ -267,6 +265,13 @@
        (2 (when (not (a68-within-string)) (string-to-syntax ">")))
        (0 (ignore (put-text-property (match-beginning 0) (match-end 0)
                                      'syntax-multiline t))))
+      ((rx bow (group "N") "OTE" eow
+           (*? anychar)
+           bow "ETO" (group "N") eow)
+       (1 (when (not (a68-within-string)) (string-to-syntax "< bn")))
+       (2 (when (not (a68-within-string)) (string-to-syntax "> bn")))
+       (0 (ignore (put-text-property (match-beginning 0) (match-end 0)
+                                     'syntax-multiline t))))
       ((rx bow (group "C") "OMMENT" eow
            (*? anychar)
            bow "COMMEN" (group "T") eow)
@@ -277,34 +282,6 @@
       ((rx bow (group "C") "O" eow
            (*? anychar)
            bow "C" (group "O") eow)
-       (1 (when (not (a68-within-string)) (string-to-syntax "< c")))
-       (2 (when (not (a68-within-string)) (string-to-syntax "> c")))
-       (0 (ignore (put-text-property (match-beginning 0) (match-end 0)
-                                     'syntax-multiline t)))))
-     (point) end)))
-
-(defun a68-syntax-propertize-function-supper (start end)
-  (let ((case-fold-search nil))
-    (goto-char start)
-    (funcall
-     (syntax-propertize-rules
-      ((rx (group "#")
-           (*? anychar)
-           (group "#"))
-       (1 (when (not (a68-within-string)) (string-to-syntax "<")))
-       (2 (when (not (a68-within-string)) (string-to-syntax ">")))
-       (0 (ignore (put-text-property (match-beginning 0) (match-end 0)
-                                     'syntax-multiline t))))
-      ((rx bow (group "c") "omment" eow
-           (*? anychar)
-           bow "commen" (group "t") eow)
-       (1 (when (not (a68-within-string)) (string-to-syntax "< b")))
-       (2 (when (not (a68-within-string)) (string-to-syntax "> b")))
-       (0 (ignore (put-text-property (match-beginning 0) (match-end 0)
-                                     'syntax-multiline t))))
-      ((rx bow (group "c") "o" eow
-           (*? anychar)
-           bow "c" (group "o") eow)
        (1 (when (not (a68-within-string)) (string-to-syntax "< c")))
        (2 (when (not (a68-within-string)) (string-to-syntax "> c")))
        (0 (ignore (put-text-property (match-beginning 0) (match-end 0)
@@ -836,7 +813,8 @@ with the equivalent upcased form."
      ((looking-at "[A-Z][A-Za-z_]+")
       (let* ((end (match-end 0))
              (token (if (and (not (looking-at "[A-Z][A-Za-z_]+[ \t\n]*,"))
-                             (looking-back "access[ \t\n]*\\([ \t\n]*[A-Z][A-Za-z_]+[ \t\n]*,\\)*[ \t\n]*"))
+                             (looking-back "access[ \t\n]*\\([ \t\n]*[A-Z][A-Za-z_]+[ \t\n]*,\\)*[ \t\n]*"
+                                           nil))
                         "-ssecca-"
                       "-bold-")))
         (goto-char end)
@@ -960,7 +938,8 @@ with the equivalent upcased form."
      ((looking-back "[A-Z][A-Za-z_]+" (pos-bol))
       (goto-char (match-beginning 0))
       (if (and (not (looking-at "[A-Z][A-Za-z_]+[ \t\n]*,"))
-               (looking-back "access[ \t\n]*\\([ \t\n]*[A-Z][A-Za-z_]+[ \t\n]*,\\)*[ \t\n]*"))
+               (looking-back "access[ \t\n]*\\([ \t\n]*[A-Z][A-Za-z_]+[ \t\n]*,\\)*[ \t\n]*"
+                             nil))
           "-ssecca-"
         "-bold-"))
      ((and (looking-back "\\<[a-z]+:" (pos-bol))
@@ -1123,7 +1102,8 @@ UPPER stropping version."
      ((looking-at "[A-Z][A-Z_]+")
       (let* ((end (match-end 0))
              (token (if (and (not (looking-at "[A-Z][A-Z_]+[ \t\n]*,"))
-                             (looking-back "access[ \t\n]*\\([ \t\n]*[A-Z][A-Z_]+[ \t\n]*,\\)*[ \t\n]*"))
+                             (looking-back "access[ \t\n]*\\([ \t\n]*[A-Z][A-Z_]+[ \t\n]*,\\)*[ \t\n]*"
+                                           nil))
                         "-ssecca-"
                       "-bold-")))
         (goto-char end)
@@ -1237,7 +1217,8 @@ UPPER stropping version."
      ((looking-back "[A-Z][A-Z]+" (pos-bol))
       (goto-char (match-beginning 0))
       (if (and (not (looking-at "[A-Z][A-Z_]+[ \t\n]*,"))
-               (looking-back "access[ \t\n]*\\([ \t\n]*[A-Z][A-Z_]+[ \t\n]*,\\)*[ \t\n]*"))
+               (looking-back "access[ \t\n]*\\([ \t\n]*[A-Z][A-Z_]+[ \t\n]*,\\)*[ \t\n]*"
+                             nil))
           "-ssecca-"
         "-bold-"))
      ((looking-back "\\<[a-z]+:" (pos-bol))
@@ -1326,7 +1307,7 @@ UPPER stropping version."
     ;; Since "|" is in the same BNF rule as "(" in choice-clauses,
     ;; SMIE by default aligns it with it.
     (`(:before . "|")
-     (if (not smie-rule-sibling-p) 3))
+     (if (not (smie-rule-sibling-p)) 3))
     (`(:after . "BEGIN") 6)
     (`(:after . "THEN") 5)
     (`(:after . "ELSE") 5)
@@ -1441,14 +1422,14 @@ UPPER stropping version."
   (cond
    ((equal a68--stropping-regime 'supper)
     ;; SUPPER stropping.
-    (setq-local comment-start a68-comment-style-supper)
-    (setq-local comment-end a68-comment-style-supper)
     (setq-local font-lock-defaults '(a68-font-lock-keywords-supper))
     (smie-setup a68--smie-grammar-supper #'a68--smie-rules-supper
                 :forward-token #'a68--smie-forward-token-supper
                 :backward-token #'a68--smie-backward-token-supper)
     (setq-local beginning-of-defun-function #'a68-beginning-of-defun-supper)
-    (setq-local syntax-propertize-function #'a68-syntax-propertize-function-supper))
+    (setq-local comment-start "{")
+    (setq-local comment-start-skip "{ *")
+    (setq-local comment-end " }"))
    (t
     ;; UPPER stropping.
     (setq-local comment-start a68-comment-style-upper)
@@ -1458,10 +1439,10 @@ UPPER stropping version."
                 :forward-token #'a68--smie-forward-token-upper
                 :backward-token #'a68--smie-backward-token-upper)
     (setq-local beginning-of-defun-function #'a68-beginning-of-defun-upper)
-    (setq-local syntax-propertize-function #'a68-syntax-propertize-function-upper)))
-  (setq-local comment-start-skip "\\(#\\) *")
-  (add-hook 'syntax-propertize-extend-region-functions
-            #'syntax-propertize-multiline 'append 'local))
+    (setq-local comment-start-skip "\\(#\\) *")
+    (setq-local syntax-propertize-function #'a68-syntax-propertize-function-upper)
+    (add-hook 'syntax-propertize-extend-region-functions
+              #'syntax-propertize-multiline 'append 'local))))
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.a68\\'" . a68-mode))
