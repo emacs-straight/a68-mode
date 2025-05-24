@@ -104,6 +104,25 @@
                  (const "{"))
   :safe #'consp)
 
+;;;; Our own comment quoting function.
+
+(defun a68--comment-quote-nested (cs ce unp)
+  "Quote comment delimiters in the buffer for a68-mode."
+  (if (or (equal cs "{") (equal cs "NOTE"))
+      ;; Nestable comments do not require any extra handling on top of
+      ;; comment-region-default when unp is nil.  Non-nestable
+      ;; coments, used in the classic stropping regime, are all
+      ;; supposed to be properly handled by
+      ;; comment-quote-nested-default, with the exception of # .. #
+      ;; which is mishandled since it uses symmetrical delimiters of
+      ;; size one character where replacing # by #/ obviously doesn't
+      ;; have the right effect.  To improve.
+      (when unp
+        ;; Remove the end comment.
+        (goto-char (- (point-max) (length ce)))
+        (delete-char (- (length ce) 1)))
+    (comment-quote-nested-default cs ce unp)))
+
 ;;;; Syntax table for the a68-mode.
 
 (defvar a68-mode-syntax-table
@@ -247,8 +266,8 @@
     ;; To distinguish from operator indications in highlighting,
     ;; we mandate type faced strings to have at least one
     ;; lower-case letter.
-    (cons "\\<\\([A-Z][A-Za-z_]*[a-z][A-Za-z_]*\\)\\>" ''font-lock-type-face)
-    (cons "\\<\\([A-Z][A-Z_]*\\)\\>" ''font-lock-keyword-face)))
+    (cons "\\<\\([A-Z][A-Za-z0-9_]*[a-z][A-Za-z0-9_]*\\)\\>" ''font-lock-type-face)
+    (cons "\\<\\([A-Z][A-Z0-9_]*\\)\\>" ''font-lock-keyword-face)))
   "Highlighting expressions for Algol 68 mode in SUPPER stropping.")
 
 ;;;; Syntax-based text properties.
@@ -749,7 +768,7 @@ with the equivalent upcased form."
                                  "while" "do" "(" "|" "|:" "def" "postlude"))
                    (- (point) 8))
      ;; tag denotation or mode indication
-     (and (looking-back "[A-Z][A-Za-z_]+" (pos-bol))
+     (and (looking-back "[A-Z][A-Za-z0-9_]+" (pos-bol))
           ;; Given the context at hand, i.e. a bold word followed
           ;; by "from", "to", "by", "while" or "do", we are at the
           ;; beginning of an enclosed clause if we are part of:
@@ -796,7 +815,7 @@ with the equivalent upcased form."
         ;; mode-indication consists of the symbols "loc" and "heap",
         ;; plus those symbols which may immediately precede a
         ;; mode-indication in an actual-MODE-declarer.
-        (or (looking-back "[A-Z][A-Za-z_]+" (pos-bol))
+        (or (looking-back "[A-Z][A-Za-z0-9_]+" (pos-bol))
             (looking-back (regexp-opt '("loc" "heap"
                                         "ref" ")" "]"
                                         "proc" "flex"))
@@ -812,10 +831,10 @@ with the equivalent upcased form."
       "-oper-")
      ;; A bold-word may be a ssecca insert if it is preceded by a
      ;; joined list of bold words, preceded by access.
-     ((looking-at "[A-Z][A-Za-z_]+")
+     ((looking-at "[A-Z][A-Za-z0-9_]+")
       (let* ((end (match-end 0))
-             (token (if (and (not (looking-at "[A-Z][A-Za-z_]+[ \t\n]*,"))
-                             (looking-back "access[ \t\n]*\\([ \t\n]*[A-Z][A-Za-z_]+[ \t\n]*,\\)*[ \t\n]*"
+             (token (if (and (not (looking-at "[A-Z][A-Za-z0-9_]+[ \t\n]*,"))
+                             (looking-back "access[ \t\n]*\\([ \t\n]*[A-Z][A-Za-z0-9_]+[ \t\n]*,\\)*[ \t\n]*"
                                            nil))
                         "-ssecca-"
                       "-bold-")))
@@ -937,10 +956,10 @@ with the equivalent upcased form."
                     (pos-bol))
       (goto-char (match-beginning 0))
       "-oper-")
-     ((looking-back "[A-Z][A-Za-z_]+" (pos-bol))
+     ((looking-back "[A-Z][A-Za-z0-9_]+" (pos-bol))
       (goto-char (match-beginning 0))
-      (if (and (not (looking-at "[A-Z][A-Za-z_]+[ \t\n]*,"))
-               (looking-back "access[ \t\n]*\\([ \t\n]*[A-Z][A-Za-z_]+[ \t\n]*,\\)*[ \t\n]*"
+      (if (and (not (looking-at "[A-Z][A-Za-z0-9_]+[ \t\n]*,"))
+               (looking-back "access[ \t\n]*\\([ \t\n]*[A-Z][A-Za-z0-9_]+[ \t\n]*,\\)*[ \t\n]*"
                              nil))
           "-ssecca-"
         "-bold-"))
@@ -1421,6 +1440,7 @@ UPPER stropping version."
   ;; First determine the stropping regime
   (setq-local a68--stropping-regime
               (a68--figure-out-stropping-regime))
+  (setq-local comment-quote-nested-function #'a68--comment-quote-nested)
   (cond
    ((equal a68--stropping-regime 'supper)
     ;; SUPPER stropping.
@@ -1431,7 +1451,7 @@ UPPER stropping version."
     (setq-local beginning-of-defun-function #'a68-beginning-of-defun-supper)
     (setq-local comment-start "{")
     (setq-local comment-start-skip "{ *")
-    (setq-local comment-end " }"))
+    (setq-local comment-end "}"))
    (t
     ;; UPPER stropping.
     (setq-local comment-start a68-comment-style-upper)
