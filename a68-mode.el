@@ -73,7 +73,13 @@
   :safe #'integerp)
 
 (defface a68-string-break-face '((t :inherit font-lock-string-face))
-  "Face for printing Algol 64 string breaks.")
+  "Face for printing Algol 68 string breaks.")
+
+(defface a68-bits-radix-face '((t :weight bold))
+  "Face for printing the radix of Algol 68 bits denotations.")
+
+(defface a68-bits-flip-face '((t :weight bold))
+  "Face for printing set bits in binary Algol 68 bits denotations.")
 
 (defvar a68-mode-map
   (let ((map (make-sparse-keymap)))
@@ -211,12 +217,30 @@
 
 ;;;; Font-lock keywords.
 
+(defun a68--string-matcher (re end)
+  "Search for a regexp within Algol 68 strings."
+  (let (pos (case-fold-search t))
+    (while (and (setq pos (re-search-forward re end t))
+                (not (a68-within-string))))
+    pos))
+
+(defun a68--string-break-matcher (end)
+  (a68--string-matcher "\\('[nrft']\\)\\|\\('(.*?)\\)" end))
+
+(defun a68--bad-string-break-matcher (end)
+  (a68--string-matcher "\\(''\\|[^']\\)\\('[^nrft'(]\\)" end))
+
 (defconst a68-font-lock-keywords-common
   (list
+   ;; Radix in bit denotations.
+   '("\\(\\(8\\|16\\|10\\)r\\)[ \t]*[0-9a-f]+" 1 ''a68-bits-radix-face)
+   ;; Binary bit denotations also highlight set bits.
+   '("\\<\\(2r\\)[ \t]*[01]+" (1 ''a68-bits-radix-face)
+     ("1" (re-search-backward "2r" nil t) nil (0 ''a68-bits-flip-face)))
    ;; String breaks.  Apostrophe is not (currently) a worthy character
    ;; out of strings, so for now we can just match it anywhere.
-   '("\\('[nrft']\\)\\|\\('(.*?)\\)" 0 ''a68-string-break-face prepend)
-   '("\\(''\\|[^']\\)\\('[^nrft'(]\\)" 2 ''font-lock-warning-face prepend)
+   '(a68--string-break-matcher 0 'a68-string-break-face t)
+   '(a68--bad-string-break-matcher 2 'font-lock-warning-face t)
    ;; Two or more consecutive underscore characters are always
    ;; illegal in this stropping regime.
    (cons "_[_]+" ''font-lock-warning-face))
