@@ -87,6 +87,9 @@
 (defface a68-numbers-face '((t :weight bold :foreground "red"))
   "Face for printing integer and real Algol 68 denotations")
 
+(defface a68-generator-face '((t :weight bold :foreground "purple"))
+  "Face for printing Algol 68 generators")
+
 (defvar a68-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-j") #'newline-and-indent)
@@ -186,7 +189,7 @@
       "ALIEN" "RE" "IM"
       "MODE" "OP" "PRIO" "PROC"
       "OF" "AT" "IS" "ISNT" "EMPTY" "SKIP"
-      "PR" "PRAGMAT" "STRUCT" "UNION"
+      "PR" "PRAGMAT" "STRUCT" "UNION" "NEST"
       "CASE" "IN" "OUSE" "OUT" "ESAC"
       "FOR" "FORALL" "FROM" "TO" "BY" "WHILE" "DO" "OD"
       "EQ" "NE" "LT" "GT" "LE" "GE"
@@ -202,21 +205,27 @@
       "UNSAFE" "ASSERT")
     "List of Algol 68 keywords in UPPER stropping.")
 
+  (defconst a68-generators-upper
+    '("LOC" "HEAP"))
+
   ;; SUPPER stropping.
   (defconst a68-std-modes-supper
     '("proc" "flex" "int" "real" "bool" "char" "format" "void" "op"
-      "compl" "bits" "bytes" "string" "sema" "file" "channel" "ref"
-      "loc" "heap" "struct" "long" "short" "union")
+      "compl" "bits" "bytes" "string" "sema" "ref"
+      "struct" "long" "short" "union")
     "List of Algol 68 standard modes in SUPPER stropping.")
 
   (defconst a68-constants-supper
     '("nil" "false" "true" "skip" "empty"))
 
+  (defconst a68-generators-supper
+    '("loc" "heap"))
+
   (defconst a68-keywords-supper
     '("empty" "at"
       "pr" "pragmat"
       "up" "down"
-      "andth" "orel" "is" "isnt"
+      "andth" "orel" "is" "isnt" "nest"
       "prio" "mode" "begin" "end" "exit" "par" "if"
       "then" "elif" "else" "fi" "case" "in" "ouse" "out" "esac"
       "of" "go" "goto" "for" "from" "by" "to" "while"
@@ -262,7 +271,8 @@
 (defconst a68-font-lock-keywords-upper
   (append
    a68-font-lock-keywords-common
-   (list (cons (rx word-start
+   (list (cons "'" ''font-lock-keyword-face)
+         (cons (rx word-start
                    (eval `(or ,@a68-keywords-upper))
                    word-end)
                ''font-lock-keyword-face)
@@ -274,6 +284,10 @@
                    (or "TRUE" "FALSE")
                    word-end)
                ''font-lock-constant-face)
+         (cons (rx word-start
+              (eval `(or ,@a68-generators-upper))
+              word-end)
+          ''a68-generator-face)
          '("\\<\\([A-Z]+[A-Z_]*\\>\\)\\(_+\\)?"
            (1 'font-lock-type-face)
            (2 'font-lock-warning-face nil t))
@@ -285,6 +299,7 @@
   (append
    a68-font-lock-keywords-common
    (list
+    (cons "'" ''font-lock-keyword-face)
     (cons (rx word-start
               (eval `(or ,@a68-keywords-supper))
               word-end)
@@ -298,9 +313,16 @@
               word-end)
           ''font-lock-constant-face)
     (cons (rx word-start
-              (or "true" "false")
+              (eval `(or ,@a68-generators-supper))
               word-end)
-          ''font-lock-constant-face)
+          ''a68-generator-face)
+    ;; Parentheses can be used like begin/end so font-lock them as
+    ;; keywords.
+    (cons "[()]" ''font-lock-keyword-face)
+    ;; Ditto for vertical bars.
+    (cons "|" ''font-lock-keyword-face)
+    ;; ~ is an alternative representation of skip.
+    (cons "~" ''font-lock-constant-face)
     ;; Numbers.
     (cons "\\<\\([0-9][0-9.]*\\)\\>" ''a68-numbers-face)
     ;; Tags.
@@ -408,6 +430,7 @@ with the equivalent upcased form."
            (spec))
     (exp (ids)
          (exp "of" exp)
+         (exp "'" exp)
          (exp "[" exp "]")
          ("module" exp "def"  exp "fed")
          ("module" exp "def" exp "postlude" exp "fed"))
@@ -675,7 +698,8 @@ with the equivalent upcased form."
                     ("loc" declarer))
     ;; Selections
     ;; ----------
-    (selection (id "of" secondary))
+    (selection (id "of" secondary)
+               (id "'" secondary))
     ;; Slices
     ;; ------
     ;; XXX
@@ -755,7 +779,7 @@ with the equivalent upcased form."
 (defvar a68--smie-grammar-upper
   (smie-prec2->grammar
    (smie-bnf->prec2 (a68--upcase-strings-in-tree a68--bnf-grammar)
-                    '((assoc "OF" "[")
+                    '((assoc "OF" "'" "[")
                       (assoc ";")
                       (assoc "|" "|:")
                       (assoc ","))
@@ -765,7 +789,7 @@ with the equivalent upcased form."
 (defvar a68--smie-grammar-supper
   (smie-prec2->grammar
    (smie-bnf->prec2 a68--bnf-grammar
-                    '((assoc "of" "[")
+                    '((assoc "of" "'" "[")
                       (assoc ";")
                       (assoc ","))
                     '((assoc "=" "/" ":=" ":=:" ":/=:"
@@ -833,7 +857,7 @@ with the equivalent upcased form."
              (looking-back (regexp-opt '(":" ":=" ":/=:" "=" "," ";" "["
                                          "@" "begin" "if" "then" "elif"
                                          "else" "case" "in" "ouse" "out"
-                                         "of" "from" "by" "to" "while"
+                                         "of" "'" "from" "by" "to" "while"
                                          "do" "(" "|" "def" "postlude"))
                            (- (point) 8))
              ;; operator, so any nomad or monad.
@@ -1142,7 +1166,7 @@ UPPER stropping version."
              (looking-back (regexp-opt '(":" ":=" ":/=:" "=" "," ";" "["
                                          "@" "BEGIN" "IF" "THEN" "ELIF"
                                          "ELSE" "CASE" "IN" "OUSE" "OUT"
-                                         "OF" "FROM" "BY" "TO" "WHILE"
+                                         "OF" "'" "FROM" "BY" "TO" "WHILE"
                                          "DO" "(" "|" "DEF" "POSTLUDE"))
                            (- (point) 8))
              ;; operator, so any nomad or monad.
