@@ -1,13 +1,13 @@
 ;;; a68-mode.el --- Major mode for editing Algol 68 code -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2011-2025  Free Software Foundation, Inc.
+;; Copyright (C) 2011-2026  Free Software Foundation, Inc.
 
 ;; Author: Jose E. Marchesi
 ;;         Omar Polo <op@omarpolo.com>
 ;; Maintainer: Jose E. Marchesi <jemarch@gnu.org>
 ;; URL: https://git.sr.ht/~jemarch/a68-mode
 ;; Keywords: languages
-;; Version: 1.2
+;; Version: 1.3
 ;; Package-Requires: ((emacs "24.3"))
 
 ;; This file is NOT part of GNU Emacs.
@@ -127,6 +127,36 @@
                  (const "NOTE")
                  (const "{"))
   :safe #'consp)
+
+;;;; Some regexps to identify certain source constructs.
+
+(defvar a68--keywords-regexp
+  (regexp-opt '("|:" "(" ")" "+" "*" ";" ">" "<" ":=" "=" "," ":" "~")))
+
+(defconst a68--monads
+  '("%" "^" "&" "+" "-" "~" "!" "?"))
+
+(defconst a68--nomads
+  '(">" "<" "/" "=" "*"))
+
+;; An operator indication is:
+;; - A bold tag, or.
+;; - Any of the standard operators: *, **, /, =, /=, >, <, <=, >=, >
+;; - Any monad, or
+;; - A monad followed by a nomad, or
+;; - A monad optionally followed by a nomad followd by either
+;;   := or =:, but not by both.
+
+(defvar a68--oper-regexp
+  (concat "\\("
+          "=\\|/=\\|>\\|<\\|<=\\|>=\\|>\\|\\*\\*?\\|/\\|\\*:=\\|/:="
+          "\\|"
+          (concat "\\(?:"
+                  (regexp-opt a68--monads)
+                  (regexp-opt a68--nomads) "?"
+                  "\\(?::=\\|=:\\)?"
+                  "\\)")
+          "\\)"))
 
 ;;;; Our own comment quoting function.
 
@@ -828,34 +858,6 @@ with the equivalent upcased form."
 
 ;;;; SMIE lexer, SUPPER stropping.
 
-(defvar a68--keywords-regexp
-  (regexp-opt '("|:" "(" ")" "+" "*" ";" ">" "<" ":=" "=" "," ":" "~")))
-
-(defconst a68--monads
-  '("%" "^" "&" "+" "-" "~" "!" "?"))
-
-(defconst a68--nomads
-  '(">" "<" "/" "=" "*"))
-
-;; An operator indication is:
-;; - A bold tag, or.
-;; - Any of the standard operators: *, **, /, =, /=, >, <, <=, >=, >
-;; - Any monad, or
-;; - A monad followed by a nomad, or
-;; - A monad optionally followed by a nomad followd by either
-;;   := or =:, but not by both.
-
-(defvar a68--oper-regexp
-  (concat "\\("
-          "=\\|/=\\|>\\|<\\|<=\\|>=\\|>\\|\\*\\*?\\|/"
-          "\\|"
-          (concat "\\(?:"
-                  (regexp-opt a68--monads)
-                  (regexp-opt a68--nomads) "?"
-                  "\\(?::=\\|=:\\)?"
-                  "\\)")
-          "\\)"))
-
 (defun a68-at-strong-void-enclosed-clause-supper ()
   "Return whether the point is at the beginning of a VOID enclosed clause."
   (save-excursion
@@ -907,8 +909,8 @@ with the equivalent upcased form."
                                                  "do" "def" "postlude")
                                                'words)
                                    "\\|"
-                                   (regexp-opt (":" ":=" ":/=:" "=" "," ";" "["
-                                                "@" "'" "(" "|"))
+                                   (regexp-opt '(":" ":=" ":/=:" "=" "," ";" "["
+                                                 "@" "'" "(" "|"))
                                    "\\)")
                            (- (point) 8))
              ;; operator, so any nomad or monad.
@@ -1123,7 +1125,7 @@ with the equivalent upcased form."
       (goto-char (- (point) 2))
       "):")
      ;; A -proc- follows pub.
-     ((looking-back "\\<proc\\>")
+     ((looking-back "\\<proc\\>" nil)
       (goto-char (- (point) 4))
       (cond
        ((looking-back "\\<pub\\>[ \t\n]*" nil)
@@ -1433,7 +1435,7 @@ UPPER stropping version."
       (goto-char (- (point) 2))
       "):")
      ;; A -proc- follows pub.
-     ((looking-back "\\<PROC\\>")
+     ((looking-back "\\<PROC\\>" nil)
       (goto-char (- (point) 4))
       (cond
        ((looking-back "\\<PUB\\>[ \t\n]*" nil)
