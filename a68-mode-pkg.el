@@ -1,2 +1,2 @@
 ;; Generated package description from a68-mode.el  -*- no-byte-compile: t; lexical-binding:t -*-
-(define-package "a68-mode" "1.3.0.20260710.2" "Major mode for editing Algol 68 code" '((emacs "24.3")) :commit "598043beb11985510cf54b05df11ec92ff80187b" :authors '(("Omar Polo" . "op@omarpolo.com")) :maintainer '("Jose E. Marchesi" . "jemarch@gnu.org") :keywords '("languages") :url "https://git.sr.ht/~jemarch/a68-mode")
+(define-package "a68-mode" "1.3.0.20261005.3" "Major mode for editing Algol 68 code" '((emacs "24.3")) :commit "b9cdcc2d0afa41c06fe4ff57a32733e5ff11d854" :authors '(("Omar Polo" . "op@omarpolo.com")) :maintainer '("Jose E. Marchesi" . "jemarch@gnu.org") :keywords '("languages") :url "https://git.sr.ht/~jemarch/a68-mode")
